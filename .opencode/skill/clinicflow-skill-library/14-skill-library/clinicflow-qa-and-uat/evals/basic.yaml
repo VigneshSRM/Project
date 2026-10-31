@@ -1,0 +1,13 @@
+cases:
+  - id: basic-01
+    scenario: "Coverage"
+    input: "Plan tests for release."
+    expected_behavior: "Covers workflows A-D, route matrix, access matrix, concurrency, a11y."
+    prohibited_behavior: "Only unit tests."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Breadcrumb gap"
+    input: "New route without crumbs."
+    expected_behavior: "Navigation test fails."
+    prohibited_behavior: "Passing silently."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

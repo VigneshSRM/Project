@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${pageTitle} + ' · IMS'">Module</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${moduleTitle},
+            ${moduleDescription},
+            null,
+            null,
+            'In build',
+            'neutral')}"></div>
+
+    <div class="content-body">
+        <div class="card module-placeholder">
+            <div class="card-body">
+                <div class="module-icon">
+                    <svg aria-hidden="true"><use th:href="@{/icons.svg#layout-dashboard}"></use></svg>
+                </div>
+                <h2 style="margin-top:0" th:text="${moduleTitle}">Module</h2>
+                <p class="muted" th:text="${moduleDescription}">Description</p>
+                <div class="alert alert-info" style="margin-top:24px">
+                    This screen is wired into the application shell, role navigation and breadcrumb map.
+                    Its data tables, forms and workflow actions are next in the build sequence.
+                </div>
+                <a class="btn btn-secondary" th:href="@{${navItems.size() > 0 ? navItems[0].href : '/'}}">
+                    Back to dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

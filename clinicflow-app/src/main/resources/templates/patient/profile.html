@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>My Profile · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'My Profile',
+            'Your personal, address and optional medical details.',
+            null,
+            null,
+            ${statusLabel},
+            ${statusTone})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${saved}">
+            Your profile has been saved.
+        </div>
+        <div class="alert alert-success" th:if="${linkRequested}" th:text="${linkRequested}"></div>
+        <div class="alert alert-error" th:if="${linkError}" th:text="${linkError}"></div>
+        <div class="alert alert-error" th:if="${profileError}" th:text="${profileError}"></div>
+
+        <div class="card" th:if="${missingProfile}">
+            <div class="card-body">
+                <div class="empty-state">
+                    <h2>Your patient record is not linked yet</h2>
+                    <p>Ask your clinic front desk to link your patient ID to this account. IMS never
+                        links records by name or email alone.</p>
+                    <a class="btn btn-primary" th:href="@{/patient/dashboard}">Back to dashboard</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-layout" th:unless="${missingProfile}">
+            <div>
+                <form th:action="@{/patient/profile}" th:object="${profileForm}" method="post" data-guard>
+                    <fieldset class="form-section">
+                        <legend>Personal</legend>
+
+                        <div class="profile-identity">
+                            <div class="readonly">
+                                <div class="form-label">Patient ID</div>
+                                <strong th:text="${profile.patient.publicPatientId}">PAT-2026-0001</strong>
+                            </div>
+                            <div class="readonly">
+                                <div class="form-label">Account status</div>
+                                <span class="badge" th:classappend="'tone-' + ${statusTone}"
+                                      th:text="${statusLabel}">Active</span>
+                            </div>
+                            <div class="readonly">
+                                <div class="form-label">Email address</div>
+                                <strong th:text="${profile.patient.email}">patient@example.com</strong>
+                                <div class="form-help">Verified. Contact changes require re-verification.</div>
+                            </div>
+                            <div class="readonly">
+                                <div class="form-label">Mobile number</div>
+                                <strong th:text="${profile.patient.mobile != null ? profile.patient.mobile : 'Not provided'}">
+                                    +91 98765 43210
+                                </strong>
+                                <div class="form-help">Mobile changes are not available in this release.</div>
+                            </div>
+                            <div class="readonly">
+                                <div class="form-label">Date of birth</div>
+                                <strong th:text="${profile.patient.dob}">1990-05-15</strong>
+                                <div class="form-help">Used for identity checks; contact the clinic to correct it.</div>
+                            </div>
+                            <div class="readonly">
+                                <div class="form-label">Member since</div>
+                                <strong th:text="${profile.patient.createdAt != null ? #strings.substring(profile.patient.createdAt.toString(), 0, 10) : '-'}">
+                                    2026-10-25
+                                </strong>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label" for="firstName">First name <span class="required">*</span></label>
+                                <input class="form-input" id="firstName" type="text" th:field="*{firstName}"
+                                       th:classappend="${#fields.hasErrors('firstName')} ? ' input-error' : ''"
+                                       autocomplete="given-name" required>
+                                <div class="form-error" th:if="${#fields.hasErrors('firstName')}"
+                                     th:errors="*{firstName}"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="lastName">Last name <span class="required">*</span></label>
+                                <input class="form-input" id="lastName" type="text" th:field="*{lastName}"
+                                       th:classappend="${#fields.hasErrors('lastName')} ? ' input-error' : ''"
+                                       autocomplete="family-name" required>
+                                <div class="form-error" th:if="${#fields.hasErrors('lastName')}"
+                                     th:errors="*{lastName}"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="gender">Gender</label>
+                                <select class="form-select" id="gender" th:field="*{gender}"
+                                        th:classappend="${#fields.hasErrors('gender')} ? ' input-error' : ''">
+                                    <option th:each="option : ${genders}"
+                                            th:value="${option}"
+                                            th:text="${option.name() == 'UNKNOWN' ? 'Prefer not to say' : #strings.capitalize(#strings.toLowerCase(option.name()))}">
+                                    </option>
+                                </select>
+                                <div class="form-error" th:if="${#fields.hasErrors('gender')}" th:errors="*{gender}"></div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="form-section">
+                        <legend>Address</legend>
+                        <div class="form-grid">
+                            <div class="form-group full">
+                                <label class="form-label" for="addressLine1">Address line 1</label>
+                                <input class="form-input" id="addressLine1" type="text" th:field="*{addressLine1}"
+                                       th:classappend="${#fields.hasErrors('addressLine1')} ? ' input-error' : ''"
+                                       autocomplete="address-line1">
+                                <div class="form-error" th:if="${#fields.hasErrors('addressLine1')}"
+                                     th:errors="*{addressLine1}"></div>
+                            </div>
+                            <div class="form-group full">
+                                <label class="form-label" for="addressLine2">Address line 2</label>
+                                <input class="form-input" id="addressLine2" type="text" th:field="*{addressLine2}"
+                                       th:classappend="${#fields.hasErrors('addressLine2')} ? ' input-error' : ''"
+                                       autocomplete="address-line2">
+                                <div class="form-error" th:if="${#fields.hasErrors('addressLine2')}"
+                                     th:errors="*{addressLine2}"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="city">City</label>
+                                <input class="form-input" id="city" type="text" th:field="*{city}"
+                                       th:classappend="${#fields.hasErrors('city')} ? ' input-error' : ''"
+                                       autocomplete="address-level2">
+                                <div class="form-error" th:if="${#fields.hasErrors('city')}" th:errors="*{city}"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="district">District</label>
+                                <input class="form-input" id="district" type="text" th:field="*{district}"
+                                       th:classappend="${#fields.hasErrors('district')} ? ' input-error' : ''">
+                                <div class="form-error" th:if="${#fields.hasErrors('district')}" th:errors="*{district}"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="state">State</label>
+                                <input class="form-input" id="state" type="text" th:field="*{state}"
+                                       th:classappend="${#fields.hasErrors('state')} ? ' input-error' : ''"
+                                       autocomplete="address-level1">
+                                <div class="form-error" th:if="${#fields.hasErrors('state')}" th:errors="*{state}"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="postalCode">Postal code</label>
+                                <input class="form-input" id="postalCode" type="text" th:field="*{postalCode}"
+                                       th:classappend="${#fields.hasErrors('postalCode')} ? ' input-error' : ''"
+                                       autocomplete="postal-code">
+                                <div class="form-error" th:if="${#fields.hasErrors('postalCode')}"
+                                     th:errors="*{postalCode}"></div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="form-section">
+                        <legend>Optional medical</legend>
+                        <p class="form-help" style="margin-top:0">
+                            This is patient-entered information, not a doctor's record. You can leave it blank.
+                        </p>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label" for="bloodGroup">Blood group</label>
+                                <input class="form-input" id="bloodGroup" type="text" th:field="*{bloodGroup}"
+                                       th:classappend="${#fields.hasErrors('bloodGroup')} ? ' input-error' : ''"
+                                       placeholder="e.g. O+">
+                                <div class="form-error" th:if="${#fields.hasErrors('bloodGroup')}"
+                                     th:errors="*{bloodGroup}"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="emergencyName">Emergency contact name</label>
+                                <input class="form-input" id="emergencyName" type="text" th:field="*{emergencyName}"
+                                       th:classappend="${#fields.hasErrors('emergencyName')} ? ' input-error' : ''">
+                                <div class="form-error" th:if="${#fields.hasErrors('emergencyName')}"
+                                     th:errors="*{emergencyName}"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="emergencyPhone">Emergency contact phone</label>
+                                <input class="form-input" id="emergencyPhone" type="tel" th:field="*{emergencyPhone}"
+                                       th:classappend="${#fields.hasErrors('emergencyPhone')} ? ' input-error' : ''">
+                                <div class="form-error" th:if="${#fields.hasErrors('emergencyPhone')}"
+                                     th:errors="*{emergencyPhone}"></div>
+                            </div>
+                            <div class="form-group full">
+                                <label class="form-label" for="allergies">Allergies</label>
+                                <textarea class="form-input" id="allergies" rows="3" th:field="*{allergies}"
+                                          th:classappend="${#fields.hasErrors('allergies')} ? ' input-error' : ''"></textarea>
+                                <div class="form-error" th:if="${#fields.hasErrors('allergies')}"
+                                     th:errors="*{allergies}"></div>
+                            </div>
+                            <div class="form-group full">
+                                <label class="form-label" for="conditions">Existing conditions</label>
+                                <textarea class="form-input" id="conditions" rows="3" th:field="*{conditions}"
+                                          th:classappend="${#fields.hasErrors('conditions')} ? ' input-error' : ''"></textarea>
+                                <div class="form-error" th:if="${#fields.hasErrors('conditions')}"
+                                     th:errors="*{conditions}"></div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <div class="form-actions">
+                        <a class="btn btn-secondary" th:href="@{/patient/dashboard}">Cancel</a>
+                        <button class="btn btn-primary" type="submit">Save changes</button>
+                    </div>
+                </form>
+            </div>
+
+            <aside>
+                <div class="card" style="margin-bottom:var(--s-4)">
+                    <div class="card-header">
+                        <h2 class="card-title">Login email</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-success" th:if="${emailChangeRequested}"
+                             th:text="${emailChangeRequested}"></div>
+                        <div class="alert alert-error" th:if="${emailChangeError}"
+                             th:text="${emailChangeError}"></div>
+
+                        <p class="muted" style="margin-top:0">
+                            Your login email is
+                            <strong th:text="${profile.patient.email}">patient@example.com</strong>.
+                            A change is applied only after the new address opens a single-use link.
+                        </p>
+                        <form th:action="@{/patient/profile/email}" th:object="${emailChangeForm}"
+                              method="post" data-guard>
+                            <div class="form-group">
+                                <label class="form-label" for="newEmail">New email address</label>
+                                <input class="form-input" id="newEmail" type="email" th:field="*{newEmail}"
+                                       maxlength="254" autocomplete="email" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="currentPassword">Current password</label>
+                                <input class="form-input" id="currentPassword" type="password"
+                                       th:field="*{currentPassword}" autocomplete="current-password" required>
+                                <div class="form-help">We check your password before sending the link.</div>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" type="submit" data-submit-guard>
+                                Request email change
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:var(--s-4)">
+                    <div class="card-header">
+                        <h2 class="card-title">Linked clinic records</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-wrap" th:if="${!profile.linkedClinics.isEmpty()}">
+                            <table class="data-table">
+                                <thead>
+                                <tr>
+                                    <th scope="col">Clinic</th>
+                                    <th scope="col">City</th>
+                                    <th scope="col">Linked</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="link : ${profile.linkedClinics}">
+                                    <td th:text="${link.clinicName}">City Care Clinic</td>
+                                    <td th:text="${link.city}">Pune</td>
+                                    <td th:text="${link.linkedOn}">25 Oct 2026</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="empty-state" th:if="${profile.linkedClinics.isEmpty()}" style="padding:var(--s-4) 0">
+                            <h2>No clinic records linked</h2>
+                            <p>Clinic records are linked only after the clinic verifies your identity.</p>
+                        </div>
+                        <div class="alert alert-info" style="margin-bottom:var(--s-4)">
+                            Request a link below. The clinic verifies your identity before approving; no link is
+                            created automatically.
+                        </div>
+                        <form th:action="@{/patient/profile/link-requests}"
+                              th:object="${linkRequestForm}" method="post" data-guard>
+                            <div class="form-group" th:if="${!clinicOptions.isEmpty()}">
+                                <label class="form-label" for="clinicId">Link another clinic</label>
+                                <select class="form-select" id="clinicId" th:field="*{clinicId}">
+                                    <option value="">Select an active clinic</option>
+                                    <option th:each="clinic : ${clinicOptions}"
+                                            th:value="${clinic.clinicId}"
+                                            th:text="${clinic.name + ' — ' + clinic.city}"></option>
+                                </select>
+                                <div class="form-error" th:if="${#fields.hasErrors('clinicId')}"
+                                     th:errors="*{clinicId}"></div>
+                            </div>
+                            <button class="btn btn-primary btn-sm" type="submit"
+                                    th:if="${!clinicOptions.isEmpty()}">Send link request</button>
+                            <div class="alert alert-info" style="margin:0"
+                                 th:if="${clinicOptions.isEmpty()}">
+                                You are linked to every active clinic, or a request is already pending.
+                                The clinic will update the request when it is reviewed.
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card" th:if="${!profile.linkRequests.isEmpty()}">
+                    <div class="card-header">
+                        <h2 class="card-title">Link requests</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead>
+                                <tr>
+                                    <th scope="col">Clinic</th>
+                                    <th scope="col">Method</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Requested</th>
+                                    <th scope="col">Resolution</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="request : ${profile.linkRequests}">
+                                    <td th:text="${request.clinicName}">City Care Clinic</td>
+                                    <td th:text="${request.method}">CLINIC_APPROVAL</td>
+                                    <td><span class="badge"
+                                              th:classappend="'tone-' + ${request.statusTone}"
+                                              th:text="${request.status}">Pending</span></td>
+                                    <td th:text="${request.requestedOn}">25 Oct 2026, 10:00</td>
+                                    <td>
+                                        <span th:if="${request.resolutionNote != null}"
+                                              th:text="${request.resolutionNote}">Verified at the front desk</span>
+                                        <span th:if="${request.resolutionNote == null}" class="muted">-</span>
+                                        <div class="cell-muted"
+                                             th:if="${request.resolvedOn != '-'}"
+                                             th:text="'Resolved ' + ${request.resolvedOn}"></div>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

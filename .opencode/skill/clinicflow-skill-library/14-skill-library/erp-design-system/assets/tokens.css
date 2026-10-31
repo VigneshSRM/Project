@@ -1,0 +1,20 @@
+:root{
+  /* Colour */
+  --c-primary:#1E4E8C; --c-primary-hover:#173D6F; --c-primary-soft:#E6EEF8;
+  --c-sidebar-bg:#0F2744; --c-sidebar-text:#C9D6E8; --c-sidebar-active:#1E4E8C; --c-accent:#0E8A8A;
+  --c-bg:#F4F6F9; --c-surface:#FFFFFF; --c-border:#D9DEE5; --c-text:#1B2430; --c-text-muted:#5B6573;
+  --c-success:#1B7F4B; --c-success-soft:#E3F4EA; --c-warning:#8A5300; --c-warning-soft:#FFF1DB;
+  --c-danger:#B3261E; --c-danger-soft:#FBE7E5; --c-info:#1A5FB4; --c-info-soft:#E4EEFB; --c-neutral:#5B6573; --c-neutral-soft:#EDEFF2;
+  --focus-ring:0 0 0 3px rgba(30,78,140,.35);
+  /* Type */
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fs-xs:12px; --fs-sm:13px; --fs-base:14px; --fs-md:16px; --fs-lg:20px; --fs-xl:24px;
+  --fw-regular:400; --fw-medium:500; --fw-semibold:600; --lh:1.5;
+  /* Space (4px grid) */
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:24px; --s-6:32px;
+  /* Shape & layout */
+  --radius:6px; --shadow-1:0 1px 2px rgba(16,24,40,.06); --shadow-2:0 4px 12px rgba(16,24,40,.12);
+  --topbar-h:56px; --sidebar-w:256px; --sidebar-w-collapsed:64px; --breadcrumb-h:40px; --row-h:40px; --row-h-compact:32px; --row-h-comfortable:48px;
+}
+body{font-family:var(--font);font-size:var(--fs-base);line-height:var(--lh);color:var(--c-text);background:var(--c-bg)}
+:focus-visible{outline:none;box-shadow:var(--focus-ring)}

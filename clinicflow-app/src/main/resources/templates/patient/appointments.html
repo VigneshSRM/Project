@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Appointments · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Appointments',
+            'Your upcoming and past appointments across linked clinics.',
+            'Find a clinic',
+            '/patient/clinics',
+            ${#lists.size(appointments) + ' records'},
+            'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${appointmentSaved}" th:text="${appointmentSaved}"></div>
+        <div class="alert alert-error" th:if="${appointmentError}" th:text="${appointmentError}"></div>
+
+        <section class="card">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr><th>Appointment</th><th>When</th><th>Clinic</th><th>Doctor</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${appointments}">
+                        <td><a class="cell-primary" th:href="@{'/patient/appointments/' + ${row.id}}"
+                               th:text="${row.publicId}">APT-0000</a></td>
+                        <td th:text="${row.when}">—</td>
+                        <td th:text="${row.clinic}">Clinic</td>
+                        <td th:text="${row.doctor}">Doctor</td>
+                        <td><span class="badge" th:classappend="'tone-' + ${row.tone}"
+                                  th:text="${row.status}">BOOKED</span></td>
+                        <td><a class="btn btn-ghost btn-sm" th:href="@{'/patient/appointments/' + ${row.id}}">Open</a></td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(appointments)}">
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <h2>No appointments yet</h2>
+                                <p>Find an active clinic and book an open slot.</p>
+                                <a class="btn btn-primary" th:href="@{/patient/clinics}">Find a clinic</a>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

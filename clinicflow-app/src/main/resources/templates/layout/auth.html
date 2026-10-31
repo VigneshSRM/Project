@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${pageTitle != null ? pageTitle + ' · IMS' : 'IMS · Infeara Medical System'}">IMS</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/ims-mark.svg}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div class="auth-page">
+    <div class="auth-card" th:classappend="${authWide} ? ' auth-card-wide' : ''">
+        <div class="auth-brand">
+            <th:block th:replace="~{fragments/brand :: wordmark}"></th:block>
+        </div>
+        <th:block layout:fragment="auth-content">
+            <p class="muted">Authentication content could not be rendered.</p>
+        </th:block>
+    </div>
+</div>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

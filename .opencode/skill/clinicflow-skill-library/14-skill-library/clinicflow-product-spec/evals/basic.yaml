@@ -1,0 +1,19 @@
+cases:
+  - id: basic-01
+    scenario: "Vague rule"
+    input: "Slots should be available for booking."
+    expected_behavior: "Marks slot duration and horizon REQUIRES-CONFIRMATION with a labelled default."
+    prohibited_behavior: "Silently choosing 15 minutes as fact."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Change"
+    input: "Add online payment to booking."
+    expected_behavior: "Notes it is Optional in the scope table, lists affected skills (booking, ops, security), proposes minor version bump."
+    prohibited_behavior: "Adding payment to release 1 silently."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-03
+    scenario: "Gap detection"
+    input: "Review the document for gaps."
+    expected_behavior: "Reports missing Pharmacies table, admin role, dispensing state, doctor login."
+    prohibited_behavior: "Declaring the document complete."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

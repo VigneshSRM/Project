@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Find Nearby Clinics · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Find Nearby Clinics',
+            'Search active clinics by name, city, area or postal code. Share your location to sort by distance.',
+            null, null, ${#lists.size(clinics) + ' clinics'}, 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-error" th:if="${clinicError}" th:text="${clinicError}"></div>
+
+        <section class="card">
+            <div class="card-body">
+                <form class="search-bar" th:action="@{/patient/clinics}" method="get" role="search">
+                    <input class="form-input" type="search" name="q" th:value="${query}"
+                           placeholder="Clinic name, city, area or postal code" aria-label="Search clinics">
+                    <input type="hidden" name="lat" id="lat" th:value="${lat}">
+                    <input type="hidden" name="lng" id="lng" th:value="${lng}">
+                    <button class="btn btn-primary" type="submit">Search</button>
+                    <button class="btn btn-secondary" type="button" id="use-location">Use my location</button>
+                    <a class="btn btn-ghost" th:href="@{/patient/clinics}">Clear</a>
+                </form>
+                <div class="form-help mt-4" id="location-status" th:if="${lat != null}">
+                    Showing distance from your shared location.
+                </div>
+            </div>
+        </section>
+
+        <section class="card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Active clinics</h2>
+                <span class="muted">Doctors without open availability are still listed; the booking page shows exact slots.</span>
+            </div>
+            <div class="table-wrap" th:if="${!#lists.isEmpty(clinics)}">
+                <table class="data-table">
+                    <thead>
+                    <tr><th>Clinic</th><th>Location</th><th>Doctors</th><th>Hours</th><th>Distance</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="clinic : ${clinics}">
+                        <td>
+                            <a class="cell-primary" th:href="@{'/patient/clinics/' + ${clinic.publicUuid}}"
+                               th:text="${clinic.name}">Clinic</a>
+                            <div class="cell-muted" th:text="${clinic.addressLine1}">Address</div>
+                        </td>
+                        <td>
+                            <div th:text="${clinic.city}">City</div>
+                            <div class="cell-muted" th:text="${(clinic.area ?: clinic.state) + ' · ' + clinic.postalCode}">State</div>
+                        </td>
+                        <td th:text="${clinic.doctors}">0</td>
+                        <td th:text="${clinic.openingHours ?: 'Not published'}">—</td>
+                        <td th:text="${clinic.distanceKm == null ? '—' : clinic.distanceKm + ' km'}">—</td>
+                        <td>
+                            <a class="btn btn-primary btn-sm"
+                               th:href="@{'/patient/clinics/' + ${clinic.publicUuid}}">View &amp; book</a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="empty-state" th:if="${#lists.isEmpty(clinics)}">
+                <h2>No clinics found</h2>
+                <p>Try a different city, area or postal code. Only active clinics accepting patients are shown.</p>
+                <a class="btn btn-ghost" th:href="@{/patient/clinics}">Show all clinics</a>
+            </div>
+        </section>
+    </div>
+
+    <script th:inline="none">
+        (function () {
+            var button = document.getElementById('use-location');
+            if (!button || !navigator.geolocation) { return; }
+            button.addEventListener('click', function () {
+                var status = document.getElementById('location-status');
+                if (status) { status.textContent = 'Requesting your location…'; }
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    document.getElementById('lat').value = position.coords.latitude.toFixed(6);
+                    document.getElementById('lng').value = position.coords.longitude.toFixed(6);
+                    button.closest('form').submit();
+                }, function () {
+                    if (status) { status.textContent = 'Location permission was not granted. You can still search by place.'; }
+                }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>

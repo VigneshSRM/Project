@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/auth}">
+<head>
+    <title>Create account · IMS</title>
+</head>
+<body>
+<div layout:fragment="auth-content">
+    <h1 class="auth-title">Create a patient account</h1>
+    <p class="auth-subtitle">
+        Your account is activated after email verification. Fields marked
+        <span class="required">*</span> are required; medical details are optional.
+    </p>
+
+    <div class="alert alert-info">
+        Use an email address you can access. The single-use verification link expires in 24 hours.
+    </div>
+
+    <div class="alert alert-error" th:if="${rateLimited}">
+        Too many registration attempts. Wait a few minutes and try again.
+    </div>
+    <form th:action="@{/register}" th:object="${registrationForm}" method="post" data-guard>
+        <div class="alert alert-error" th:if="${#fields.hasGlobalErrors()}">
+            <div th:each="error : ${#fields.globalErrors()}" th:text="${error}"></div>
+        </div>
+
+        <fieldset class="form-section">
+            <legend>Personal</legend>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="firstName">First name <span class="required">*</span></label>
+                    <input class="form-input" id="firstName" type="text" th:field="*{firstName}"
+                           th:classappend="${#fields.hasErrors('firstName')} ? ' input-error' : ''"
+                           autocomplete="given-name" required>
+                    <div class="form-error" th:if="${#fields.hasErrors('firstName')}"
+                         th:errors="*{firstName}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="lastName">Last name <span class="required">*</span></label>
+                    <input class="form-input" id="lastName" type="text" th:field="*{lastName}"
+                           th:classappend="${#fields.hasErrors('lastName')} ? ' input-error' : ''"
+                           autocomplete="family-name" required>
+                    <div class="form-error" th:if="${#fields.hasErrors('lastName')}"
+                         th:errors="*{lastName}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="dob">Date of birth <span class="required">*</span></label>
+                    <input class="form-input" id="dob" type="date" th:field="*{dob}"
+                           th:attr="max=${today}"
+                           th:classappend="${#fields.hasErrors('dob')} ? ' input-error' : ''"
+                           required>
+                    <div class="form-error" th:if="${#fields.hasErrors('dob')}" th:errors="*{dob}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="gender">Gender</label>
+                    <select class="form-select" id="gender" th:field="*{gender}"
+                            th:classappend="${#fields.hasErrors('gender')} ? ' input-error' : ''">
+                        <option th:each="option : ${genders}"
+                                th:value="${option}"
+                                th:text="${option.name() == 'UNKNOWN' ? 'Prefer not to say' : #strings.capitalize(#strings.toLowerCase(option.name()))}">
+                        </option>
+                    </select>
+                    <div class="form-error" th:if="${#fields.hasErrors('gender')}" th:errors="*{gender}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="mobile">Mobile number</label>
+                    <input class="form-input" id="mobile" type="tel" th:field="*{mobile}"
+                           th:classappend="${#fields.hasErrors('mobile')} ? ' input-error' : ''"
+                           autocomplete="tel" placeholder="+91 98765 43210">
+                    <div class="form-help">Optional today; used for contact and, later, identity linking.</div>
+                    <div class="form-error" th:if="${#fields.hasErrors('mobile')}" th:errors="*{mobile}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="email">Email address <span class="required">*</span></label>
+                    <input class="form-input" id="email" type="email" th:field="*{email}"
+                           th:classappend="${#fields.hasErrors('email')} ? ' input-error' : ''"
+                           autocomplete="email" placeholder="you@example.com" required>
+                    <div class="form-error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></div>
+                </div>
+                <div class="form-group full">
+                    <label class="form-label" for="password">Password <span class="required">*</span></label>
+                    <input class="form-input" id="password" type="password" th:field="*{password}"
+                           th:classappend="${#fields.hasErrors('password')} ? ' input-error' : ''"
+                           autocomplete="new-password" aria-describedby="password-help" required>
+                    <div class="form-help" id="password-help">
+                        At least 10 characters, including a letter and a number.
+                    </div>
+                    <div class="form-error" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
+                </div>
+                <div class="form-group full">
+                    <label class="form-label" for="confirmPassword">Confirm password <span class="required">*</span></label>
+                    <input class="form-input" id="confirmPassword" type="password" th:field="*{confirmPassword}"
+                           th:classappend="${#fields.hasErrors('confirmPassword')} ? ' input-error' : ''"
+                           autocomplete="new-password" required>
+                    <div class="form-error" th:if="${#fields.hasErrors('confirmPassword')}"
+                         th:errors="*{confirmPassword}"></div>
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+            <legend>Address</legend>
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label class="form-label" for="addressLine1">Address line 1</label>
+                    <input class="form-input" id="addressLine1" type="text" th:field="*{addressLine1}"
+                           th:classappend="${#fields.hasErrors('addressLine1')} ? ' input-error' : ''"
+                           autocomplete="address-line1">
+                    <div class="form-error" th:if="${#fields.hasErrors('addressLine1')}"
+                         th:errors="*{addressLine1}"></div>
+                </div>
+                <div class="form-group full">
+                    <label class="form-label" for="addressLine2">Address line 2</label>
+                    <input class="form-input" id="addressLine2" type="text" th:field="*{addressLine2}"
+                           th:classappend="${#fields.hasErrors('addressLine2')} ? ' input-error' : ''"
+                           autocomplete="address-line2">
+                    <div class="form-error" th:if="${#fields.hasErrors('addressLine2')}"
+                         th:errors="*{addressLine2}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="city">City</label>
+                    <input class="form-input" id="city" type="text" th:field="*{city}"
+                           th:classappend="${#fields.hasErrors('city')} ? ' input-error' : ''"
+                           autocomplete="address-level2">
+                    <div class="form-error" th:if="${#fields.hasErrors('city')}" th:errors="*{city}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="district">District</label>
+                    <input class="form-input" id="district" type="text" th:field="*{district}"
+                           th:classappend="${#fields.hasErrors('district')} ? ' input-error' : ''">
+                    <div class="form-error" th:if="${#fields.hasErrors('district')}" th:errors="*{district}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="state">State</label>
+                    <input class="form-input" id="state" type="text" th:field="*{state}"
+                           th:classappend="${#fields.hasErrors('state')} ? ' input-error' : ''"
+                           autocomplete="address-level1">
+                    <div class="form-error" th:if="${#fields.hasErrors('state')}" th:errors="*{state}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="postalCode">Postal code</label>
+                    <input class="form-input" id="postalCode" type="text" th:field="*{postalCode}"
+                           th:classappend="${#fields.hasErrors('postalCode')} ? ' input-error' : ''"
+                           autocomplete="postal-code">
+                    <div class="form-error" th:if="${#fields.hasErrors('postalCode')}"
+                         th:errors="*{postalCode}"></div>
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+            <legend>Optional medical</legend>
+            <p class="form-help" style="margin-top:0">
+                This information is patient-entered. It is not a doctor's record and you can leave it blank.
+            </p>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="bloodGroup">Blood group</label>
+                    <input class="form-input" id="bloodGroup" type="text" th:field="*{bloodGroup}"
+                           th:classappend="${#fields.hasErrors('bloodGroup')} ? ' input-error' : ''"
+                           placeholder="e.g. O+">
+                    <div class="form-error" th:if="${#fields.hasErrors('bloodGroup')}"
+                         th:errors="*{bloodGroup}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="emergencyName">Emergency contact name</label>
+                    <input class="form-input" id="emergencyName" type="text" th:field="*{emergencyName}"
+                           th:classappend="${#fields.hasErrors('emergencyName')} ? ' input-error' : ''">
+                    <div class="form-error" th:if="${#fields.hasErrors('emergencyName')}"
+                         th:errors="*{emergencyName}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="emergencyPhone">Emergency contact phone</label>
+                    <input class="form-input" id="emergencyPhone" type="tel" th:field="*{emergencyPhone}"
+                           th:classappend="${#fields.hasErrors('emergencyPhone')} ? ' input-error' : ''">
+                    <div class="form-error" th:if="${#fields.hasErrors('emergencyPhone')}"
+                         th:errors="*{emergencyPhone}"></div>
+                </div>
+                <div class="form-group full">
+                    <label class="form-label" for="allergies">Allergies</label>
+                    <textarea class="form-input" id="allergies" rows="3" th:field="*{allergies}"
+                              th:classappend="${#fields.hasErrors('allergies')} ? ' input-error' : ''"></textarea>
+                    <div class="form-error" th:if="${#fields.hasErrors('allergies')}"
+                         th:errors="*{allergies}"></div>
+                </div>
+                <div class="form-group full">
+                    <label class="form-label" for="conditions">Existing conditions</label>
+                    <textarea class="form-input" id="conditions" rows="3" th:field="*{conditions}"
+                              th:classappend="${#fields.hasErrors('conditions')} ? ' input-error' : ''"></textarea>
+                    <div class="form-error" th:if="${#fields.hasErrors('conditions')}"
+                         th:errors="*{conditions}"></div>
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="form-actions">
+            <a class="btn btn-secondary" th:href="@{/login}">Back to sign in</a>
+            <button class="btn btn-primary" type="submit">Create account</button>
+        </div>
+    </form>
+</div>
+</body>
+</html>

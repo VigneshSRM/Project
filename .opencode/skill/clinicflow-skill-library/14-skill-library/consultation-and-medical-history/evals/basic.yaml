@@ -1,0 +1,13 @@
+cases:
+  - id: basic-01
+    scenario: "Timeline"
+    input: "Show history with two visits."
+    expected_behavior: "Newest first, grouped, with prescription ID and status each."
+    prohibited_behavior: "Oldest first."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Edit"
+    input: "Patient edits diagnosis."
+    expected_behavior: "No edit control; server rejects."
+    prohibited_behavior: "Allowing edit."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${pageTitle} + ' · IMS'">Inventory</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Clinic inventory',
+            'Medicines and default prescription values for this clinic. Inventory items are suggested when creating prescriptions.',
+            'Add item', null, 'Clinic scoped', 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${inventorySaved}" th:text="${inventorySaved}"></div>
+        <div class="alert alert-error" th:if="${inventoryError}" th:text="${inventoryError}"></div>
+
+        <div class="form-actions" style="margin-bottom:16px;flex-wrap:wrap">
+            <a class="btn btn-secondary" th:href="@{/clinic/inventory/template}">Download sample CSV</a>
+            <a class="btn btn-secondary" th:href="@{/clinic/inventory/export}">Export CSV</a>
+            <form th:action="@{/clinic/inventory/import}" method="post" enctype="multipart/form-data"
+                  style="display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <input type="file" name="file" accept=".csv,text/csv" required>
+                <button class="btn btn-primary" type="submit" data-submit-guard>Import CSV</button>
+            </form>
+        </div>
+
+        <section class="card">
+            <div class="card-header"><h2 class="card-title">Add inventory item</h2></div>
+            <div class="card-body">
+                <form th:action="@{/clinic/inventory}" method="post" data-guard class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="medicine">Medicine <span class="required">*</span></label>
+                        <input class="form-input" id="medicine" name="medicine" required maxlength="200">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="dosage">Dosage</label>
+                        <input class="form-input" id="dosage" name="dosage" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="defaultFrequency">Default frequency</label>
+                        <select class="form-select" id="defaultFrequency" name="defaultFrequency">
+                            <option value="">Select frequency</option>
+                            <option value="Once a day">Once a day</option>
+                            <option value="Twice a day">Twice a day</option>
+                            <option value="Three times a day">Three times a day</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="defaultDuration">Default duration</label>
+                        <select class="form-select" id="defaultDuration" name="defaultDuration">
+                            <option value="">Select duration</option>
+                            <optgroup label="Days">
+                                <option value="1 day">1 day</option>
+                                <option value="2 days">2 days</option>
+                                <option value="3 days">3 days</option>
+                                <option value="4 days">4 days</option>
+                                <option value="5 days">5 days</option>
+                                <option value="6 days">6 days</option>
+                                <option value="7 days">7 days</option>
+                                <option value="8 days">8 days</option>
+                                <option value="9 days">9 days</option>
+                                <option value="10 days">10 days</option>
+                                <option value="11 days">11 days</option>
+                                <option value="12 days">12 days</option>
+                                <option value="13 days">13 days</option>
+                                <option value="14 days">14 days</option>
+                                <option value="15 days">15 days</option>
+                                <option value="16 days">16 days</option>
+                                <option value="17 days">17 days</option>
+                                <option value="18 days">18 days</option>
+                                <option value="19 days">19 days</option>
+                                <option value="20 days">20 days</option>
+                                <option value="21 days">21 days</option>
+                                <option value="22 days">22 days</option>
+                                <option value="23 days">23 days</option>
+                                <option value="24 days">24 days</option>
+                                <option value="25 days">25 days</option>
+                                <option value="26 days">26 days</option>
+                                <option value="27 days">27 days</option>
+                                <option value="28 days">28 days</option>
+                                <option value="29 days">29 days</option>
+                                <option value="30 days">30 days</option>
+                            </optgroup>
+                            <optgroup label="Months">
+                                <option value="1 month">1 month</option>
+                                <option value="2 months">2 months</option>
+                                <option value="3 months">3 months</option>
+                                <option value="4 months">4 months</option>
+                                <option value="5 months">5 months</option>
+                                <option value="6 months">6 months</option>
+                                <option value="7 months">7 months</option>
+                                <option value="8 months">8 months</option>
+                                <option value="9 months">9 months</option>
+                                <option value="10 months">10 months</option>
+                                <option value="11 months">11 months</option>
+                                <option value="12 months">12 months</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="defaultQuantity">Default quantity</label>
+                        <input class="form-input" id="defaultQuantity" name="defaultQuantity" type="number" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="defaultForm">Form</label>
+                        <select class="form-select" id="defaultForm" name="defaultForm">
+                            <option value="">Select unit</option>
+                            <option value="Tablet">Tablet</option>
+                            <option value="Capsule">Capsule</option>
+                            <option value="Syrup">Syrup</option>
+                            <option value="Suspension">Suspension</option>
+                            <option value="Injection">Injection</option>
+                            <option value="Cream">Cream</option>
+                            <option value="Ointment">Ointment</option>
+                            <option value="Gel">Gel</option>
+                            <option value="Drops">Drops</option>
+                            <option value="Eye Drops">Eye Drops</option>
+                            <option value="Nasal Spray">Nasal Spray</option>
+                            <option value="Inhaler">Inhaler</option>
+                            <option value="Powder">Powder</option>
+                            <option value="Sachet">Sachet</option>
+                            <option value="Suppository">Suppository</option>
+                            <option value="Lotion">Lotion</option>
+                            <option value="Mouthwash">Mouthwash</option>
+                            <option value="Oral Solution">Oral Solution</option>
+                            <option value="Dispersible Tablet">Dispersible Tablet</option>
+                            <option value="Chewable Tablet">Chewable Tablet</option>
+                            <option value="Effervescent Tablet">Effervescent Tablet</option>
+                            <option value="Extended-Release Tablet">Extended-Release Tablet</option>
+                            <option value="Oral Suspension">Oral Suspension</option>
+                            <option value="Eye Ointment">Eye Ointment</option>
+                            <option value="Ear Drops">Ear Drops</option>
+                            <option value="Nasal Drops">Nasal Drops</option>
+                            <option value="Transdermal Patch">Transdermal Patch</option>
+                            <option value="Shampoo">Shampoo</option>
+                            <option value="Gargle">Gargle</option>
+                            <option value="Lozenges">Lozenges</option>
+                            <option value="Mouth Paint">Mouth Paint</option>
+                            <option value="Nebulizer Solution">Nebulizer Solution</option>
+                            <option value="IV Infusion">IV Infusion</option>
+                            <option value="Dental Gel">Dental Gel</option>
+                            <option value="Medicated Soap">Medicated Soap</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="grid-column:1 / -1">
+                        <label class="form-label" for="defaultInstructions">Default instructions</label>
+                        <select class="form-select" id="defaultInstructions" name="defaultInstructions">
+                            <option value="">Select instructions</option>
+                            <option value="before food">before food</option>
+                            <option value="after food">after food</option>
+                            <option value="before and after food">before and after food</option>
+                            <option value="half tablet before and after">half tablet before and after</option>
+                        </select>
+                    </div>
+                    <div class="form-actions" style="grid-column:1 / -1">
+                        <button class="btn btn-primary" type="submit" data-submit-guard>Add item</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="card mt-4">
+            <div class="card-header"><h2 class="card-title">Inventory items</h2></div>
+            <div class="card-body">
+                <div class="table-wrap" th:if="${!#lists.isEmpty(medicines)}">
+                    <table class="data-table">
+                        <thead>
+                        <tr><th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration</th>
+                            <th>Qty</th><th>Form</th><th>Instructions</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="item : ${medicines}">
+                            <td th:text="${item.medicine}">Medicine</td>
+                            <td th:text="${item.dosage ?: '—'}">—</td>
+                            <td th:text="${item.defaultFrequency ?: '—'}">—</td>
+                            <td th:text="${item.defaultDuration ?: '—'}">—</td>
+                            <td th:text="${item.defaultQuantity ?: '—'}">—</td>
+                            <td th:text="${item.defaultForm ?: '—'}">—</td>
+                            <td th:text="${item.defaultInstructions ?: '—'}">—</td>
+                            <td style="white-space:nowrap">
+                                <a class="btn btn-secondary btn-sm" th:href="@{'/clinic/inventory/' + ${item.clinicMedicineId} + '/edit'}">Edit</a>
+                                <form th:action="@{'/clinic/inventory/' + ${item.clinicMedicineId} + '/delete'}" method="post"
+                                      style="display:inline" onsubmit="return confirm('Remove this inventory item?')">
+                                    <button class="btn btn-danger btn-sm" type="submit">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty-state" th:if="${#lists.isEmpty(medicines)}">
+                    <h2>No inventory items yet</h2>
+                    <p>Add medicines above. They will be suggested when creating prescriptions.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

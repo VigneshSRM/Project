@@ -1,0 +1,29 @@
+# Zero-setup local profile.
+#
+# The installed SQL Server Express instance currently has TCP/IP disabled and the
+# SQL Browser service stopped, so the Microsoft JDBC driver cannot reach it. This
+# profile lets the application run end-to-end against an in-memory H2 database in
+# SQL Server compatibility mode. The real schema remains in db/migrations and is
+# used by the default profile once TCP/IP is enabled.
+spring:
+  datasource:
+    url: jdbc:h2:mem:clinicflow;MODE=MSSQLServer;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+clinicflow:
+  mail:
+    mode: log

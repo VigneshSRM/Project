@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/auth}">
+<head>
+    <title>Accept invitation · IMS</title>
+</head>
+<body>
+<div layout:fragment="auth-content">
+    <h1 class="auth-title">Accept your invitation</h1>
+    <p class="auth-subtitle" th:if="${invite != null}">
+        <span th:text="${invite.name}">Organization</span> invited
+        <strong th:text="${invite.email}">person@example.com</strong>
+        as <span th:text="${invite.roleLabel}">staff</span>.
+    </p>
+
+    <div class="alert alert-error" th:if="${invalidInvite}">
+        <span th:text="${inviteError != null ? inviteError : 'This invitation is invalid, expired or already used.'}">
+            This invitation is invalid or expired.
+        </span>
+        <div style="margin-top:8px">
+            <a th:href="@{/login}">Back to sign in</a>
+        </div>
+    </div>
+
+    <div class="alert alert-info" th:if="${invite != null}">
+        Choose a password with at least 10 characters, including a letter and a number.
+    </div>
+
+    <form th:if="${invite != null}" th:action="@{/invite}" th:object="${inviteForm}" method="post" data-guard>
+        <input type="hidden" th:field="*{token}">
+        <div class="form-group">
+            <label class="form-label" for="password">Password <span class="required">*</span></label>
+            <input class="form-input" id="password" type="password" th:field="*{password}"
+                   th:classappend="${#fields.hasErrors('password')} ? ' input-error' : ''"
+                   autocomplete="new-password" required>
+            <div class="form-error" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="confirmPassword">Confirm password <span class="required">*</span></label>
+            <input class="form-input" id="confirmPassword" type="password" th:field="*{confirmPassword}"
+                   th:classappend="${#fields.hasErrors('confirmPassword')} ? ' input-error' : ''"
+                   autocomplete="new-password" required>
+            <div class="form-error" th:if="${#fields.hasErrors('confirmPassword')}"
+                 th:errors="*{confirmPassword}"></div>
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%">Activate account</button>
+    </form>
+
+    <div class="auth-footer">
+        <span>Already activated?</span>
+        <a th:href="@{/login}">Sign in</a>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,19 @@
+cases:
+  - id: basic-01
+    scenario: "Expired"
+    input: "Verify expired prescription."
+    expected_behavior: "EXPIRED watermark, banner, dispense disabled, log entry."
+    prohibited_behavior: "Allowing dispense."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Partial fill"
+    input: "Dispense 4 of 10 tablets, then 6."
+    expected_behavior: "Status Partially then Fully Dispensed; remaining updates; history shows both fills."
+    prohibited_behavior: "Allowing 11 total."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-03
+    scenario: "Case sensitivity"
+    input: "Enter the ID in all lower case."
+    expected_behavior: "Not Found (case-sensitive), generic message."
+    prohibited_behavior: "Normalising to upper case."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

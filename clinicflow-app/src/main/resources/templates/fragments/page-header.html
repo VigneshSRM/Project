@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div class="page-header" th:fragment="header(title, subtitle, actionLabel, actionHref, statusLabel, statusTone)">
+    <div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h1 th:text="${title}">Page title</h1>
+            <span th:if="${statusLabel != null}" class="badge"
+                  th:classappend="'tone-' + ${statusTone}" th:text="${statusLabel}">Status</span>
+        </div>
+        <p class="page-subtitle" th:if="${subtitle != null and !#strings.isEmpty(subtitle)}" th:text="${subtitle}"></p>
+    </div>
+    <div class="page-actions" th:if="${actionHref != null}">
+        <a class="btn btn-primary" th:href="@{${actionHref}}" th:text="${actionLabel}">Primary action</a>
+    </div>
+</div>
+</body>
+</html>

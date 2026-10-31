@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>SMTP Settings · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'SMTP Settings',
+            'Configure the mail server used for invitations, verification and prescription delivery.',
+            null, null, ${smtp.active() != null ? 'Configured' : 'Not configured'},
+            ${smtp.active() != null ? 'success' : 'warning'})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${smtpSaved}" th:text="${smtpSaved}"></div>
+        <div class="alert alert-error" th:if="${smtpTestMessage != null and smtpTestSuccess == false}"
+             th:text="${smtpTestMessage}"></div>
+        <div class="alert alert-success" th:if="${smtpTestMessage != null and smtpTestSuccess == true}"
+             th:text="${smtpTestMessage}"></div>
+
+        <div class="profile-layout">
+            <div>
+                <form th:action="@{/admin/smtp}" th:object="${smtpForm}" method="post" data-guard>
+                    <section class="card form-section">
+                        <div class="card-header">
+                            <h2 class="card-title">Mail server</h2>
+                            <span class="muted">Delivery mode is controlled by <code>IMS.mail.mode</code>.</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label" for="host">Host <span class="required">*</span></label>
+                                    <input class="form-input" id="host" th:field="*{host}" required maxlength="200"
+                                           placeholder="smtp.example.com">
+                                    <div class="form-error" th:if="${#fields.hasErrors('host')}" th:errors="*{host}"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="port">Port <span class="required">*</span></label>
+                                    <input class="form-input" id="port" type="number" min="1" max="65535"
+                                           th:field="*{port}" required>
+                                    <div class="form-error" th:if="${#fields.hasErrors('port')}" th:errors="*{port}"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="security">Security</label>
+                                    <select class="form-select" id="security" th:field="*{security}">
+                                        <option th:each="option : ${securityOptions}" th:value="${option}"
+                                                th:text="${option}">STARTTLS</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="username">Username</label>
+                                    <input class="form-input" id="username" th:field="*{username}" maxlength="200"
+                                           autocomplete="username">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="password">Password</label>
+                                    <input class="form-input" id="password" type="password" th:field="*{password}"
+                                           maxlength="200" autocomplete="new-password"
+                                           th:placeholder="${smtp.passwordConfigured() ? 'Leave blank to keep the stored password' : 'SMTP password'}">
+                                    <div class="form-help">Passwords are encrypted at rest and never shown again.</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="fromName">From name</label>
+                                    <input class="form-input" id="fromName" th:field="*{fromName}" maxlength="200"
+                                           placeholder="IMS">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="fromAddress">From address</label>
+                                    <input class="form-input" id="fromAddress" type="email" th:field="*{fromAddress}"
+                                           maxlength="254" placeholder="no-reply@example.com">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="testRecipient">Test recipient</label>
+                                    <input class="form-input" id="testRecipient" type="email" th:field="*{testRecipient}"
+                                           maxlength="254" placeholder="you@example.com">
+                                </div>
+                            </div>
+                            <label class="checkbox-row mt-4">
+                                <input type="checkbox" th:field="*{active}">
+                                <span>Use this configuration for outgoing mail</span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <div class="form-actions">
+                        <button class="btn btn-primary" type="submit">Save settings</button>
+                        <button class="btn btn-secondary" type="submit" th:formaction="@{/admin/smtp/test}"
+                                formnovalidate="false">Test connection</button>
+                    </div>
+                </form>
+
+                <section class="card mt-4" th:if="${smtp.active() != null}">
+                    <div class="card-header"><h2 class="card-title">Last connection test</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Tested at</dt><dd th:text="${smtp.active().lastTestAt == null ? 'Never' : #temporals.format(smtp.active().lastTestAt, 'dd MMM yyyy, HH:mm')}">Never</dd></div>
+                            <div><dt>Result</dt><dd th:text="${smtp.active().lastTestResult ?: '—'}">—</dd></div>
+                        </dl>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Recent email activity</h2></div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Type</th><th>Status</th><th>Created</th></tr></thead>
+                            <tbody>
+                            <tr th:each="email : ${smtp.recentEmails()}">
+                                <td>
+                                    <div class="cell-primary" th:text="${email.type}">TYPE</div>
+                                    <div class="cell-muted" th:text="${email.recipient}">to@example.com</div>
+                                </td>
+                                <td><span class="badge"
+                                          th:classappend="${email.status.name() == 'SENT' ? 'tone-success' : (email.status.name() == 'FAILED' ? 'tone-danger' : 'tone-warning')}"
+                                          th:text="${email.status}">QUEUED</span></td>
+                                <td th:text="${#temporals.format(email.createdAt, 'dd MMM HH:mm')}">—</td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(smtp.recentEmails())}">
+                                <td colspan="3" class="cell-muted">No email activity yet.</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

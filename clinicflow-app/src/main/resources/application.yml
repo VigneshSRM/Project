@@ -1,0 +1,90 @@
+spring:
+  application:
+    name: IMS
+  datasource:
+    # SQL Server Express must have TCP/IP enabled for the JDBC driver.
+    # Use the h2 profile for a zero-setup local run until TCP/IP is enabled.
+    url: ${DB_URL:jdbc:sqlserver://localhost\SQLEXPRESS;databaseName=ClinicFlow_Dev;encrypt=true;trustServerCertificate=true}
+    username: ${DB_USERNAME:SA}
+    password: ${DB_PASSWORD:Wonder@12345}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        physical_naming_strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 1
+  thymeleaf:
+    cache: false
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+
+server:
+  port: ${PORT:8080}
+  error:
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+  health:
+    mail:
+      enabled: false
+
+clinicflow:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+  security:
+    remember-me-key: ${REMEMBER_ME_KEY:clinicflow-dev-remember-me-key-change-me}
+  auth:
+    # Defaults for RC-10 (single-use links; policy not specified in the source).
+    verify-email-ttl-hours: ${VERIFY_EMAIL_TTL_HOURS:24}
+    reset-password-ttl-minutes: ${RESET_PASSWORD_TTL_MINUTES:60}
+    staff-invite-ttl-hours: ${STAFF_INVITE_TTL_HOURS:72}
+    email-change-ttl-hours: ${EMAIL_CHANGE_TTL_HOURS:24}
+  mail:
+    # log = write the rendered email to the application log (local development).
+    # smtp = send through the configured spring.mail server.
+    mode: ${MAIL_MODE:log}
+    from: ${MAIL_FROM:no-reply@ims.local}
+    max-attempts: ${MAIL_MAX_ATTEMPTS:3}
+    worker-delay-ms: ${MAIL_WORKER_DELAY_MS:5000}
+    worker-initial-delay-ms: ${MAIL_WORKER_INITIAL_DELAY_MS:3000}
+    worker-batch: ${MAIL_WORKER_BATCH:20}
+
+logging:
+  level:
+    root: INFO
+    com.clinicflow: INFO
+    org.hibernate.SQL: WARN

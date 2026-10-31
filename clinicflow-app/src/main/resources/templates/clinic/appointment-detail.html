@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Appointment · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${'Appointment ' + appointment.publicId},
+            ${appointment.when + ' · ' + appointment.patientName + ' with ' + appointment.doctorName},
+            null, null, ${appointment.status}, ${appointment.statusTone})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${appointmentSaved}" th:text="${appointmentSaved}"></div>
+        <div class="alert alert-error" th:if="${appointmentError}" th:text="${appointmentError}"></div>
+
+        <div class="profile-layout">
+            <div>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Appointment details</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Patient</dt><dd>
+                                <a th:href="@{'/clinic/patients/' + ${appointment.patientId}}"
+                                   th:text="${appointment.patientName + ' (' + appointment.patientPublicId + ')'}">Patient</a>
+                                <div class="cell-muted" th:text="${appointment.patientMobile ?: 'No mobile'}">—</div>
+                            </dd></div>
+                            <div><dt>Doctor</dt><dd th:text="${appointment.doctorName}">Doctor</dd></div>
+                            <div><dt>Slot</dt><dd th:text="${appointment.when}">—</dd></div>
+                            <div><dt>Reason</dt><dd th:text="${appointment.reason ?: '—'}">—</dd></div>
+                            <div th:if="${appointment.cancelledAt != null}"><dt>Cancelled</dt><dd>
+                                <span th:text="${appointment.cancelledAt}">—</span>
+                                <div class="cell-muted" th:text="${appointment.cancelReason}">—</div>
+                            </dd></div>
+                            <div><dt>Consultation</dt><dd>
+                                <span th:if="${appointment.consultationId == null}" class="muted">Not started</span>
+                                <a th:if="${appointment.consultationId != null}"
+                                   th:href="@{'/clinic/appointments/' + ${appointment.id}}"
+                                   th:text="${appointment.consultationStatus + (appointment.diagnosis == null ? '' : ' · ' + appointment.diagnosis)}">DRAFT</a>
+                            </dd></div>
+                            <div><dt>Prescription</dt><dd>
+                                <span th:if="${appointment.prescriptionCode == null}" class="muted">None issued</span>
+                                <a th:if="${appointment.prescriptionCode != null}" class="prescription-code"
+                                   th:href="@{'/clinic/prescriptions/' + ${appointment.prescriptionId}}"
+                                   th:text="${appointment.prescriptionCode}">CODE</a>
+                            </dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4" th:if="${appointment.reason != null}">
+                    <div class="card-header"><h2 class="card-title">Patient's reason</h2></div>
+                    <div class="card-body"><p th:text="${appointment.reason}">Reason</p></div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Desk actions</h2></div>
+                    <div class="card-body stack-4">
+                        <form th:each="action : ${appointment.actions()}"
+                              th:if="${action.key != 'cancel'}"
+                              th:action="@{'/clinic/appointments/' + ${appointment.id} + '/action'}" method="post">
+                            <input type="hidden" name="action" th:value="${action.key}">
+                            <button class="btn"
+                                    th:classappend="${action.tone == 'danger' ? 'btn-danger' : (action.tone == 'primary' ? 'btn-primary' : 'btn-secondary')}"
+                                    type="submit" th:text="${action.label}">Action</button>
+                        </form>
+
+                        <div th:if="${appointment.status.name() == 'BOOKED' or appointment.status.name() == 'CONFIRMED' or appointment.status.name() == 'CHECKED_IN'}"
+                             class="reject-panel">
+                            <details>
+                                <summary>Cancel appointment</summary>
+                                <form class="mt-4"
+                                      th:action="@{'/clinic/appointments/' + ${appointment.id} + '/action'}" method="post">
+                                    <input type="hidden" name="action" value="cancel">
+                                    <div class="form-group">
+                                        <label class="form-label" for="reason">Cancellation reason</label>
+                                        <textarea class="form-input" id="reason" name="reason" maxlength="300"
+                                                  placeholder="Shared with the patient in the notification email"></textarea>
+                                    </div>
+                                    <button class="btn btn-danger" type="submit"
+                                            onclick="return confirm('Cancel this appointment?')">Cancel appointment</button>
+                                </form>
+                            </details>
+                        </div>
+
+                        <a class="btn btn-ghost" th:href="@{/clinic/appointments}">Back to appointments</a>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

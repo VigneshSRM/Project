@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Link requests · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Link requests',
+            'Verify patient accounts before linking them to your clinic.',
+            null,
+            null,
+            ${view.pendingCount + ' pending'},
+            ${view.pendingCount > 0 ? 'warning' : 'success'})}"></div>
+
+    <div class="content-body">
+        <div class="kpi-grid" aria-label="Link request summary">
+            <div class="kpi-card tone-warning">
+                <div class="kpi-label">Pending verification</div>
+                <div class="kpi-value" th:text="${view.pendingCount}">0</div>
+                <div class="kpi-hint">Requests waiting for clinic staff</div>
+            </div>
+            <div class="kpi-card tone-info">
+                <div class="kpi-label">All requests</div>
+                <div class="kpi-value" th:text="${view.totalCount}">0</div>
+                <div class="kpi-hint">Pending, approved and rejected</div>
+            </div>
+        </div>
+
+        <section class="card" aria-labelledby="link-requests-title">
+            <div class="card-header">
+                <h2 class="card-title" id="link-requests-title">Account link requests</h2>
+            </div>
+            <div class="card-body" style="padding-top:12px">
+                <div class="table-wrap" th:if="${!view.requests.isEmpty()}">
+                    <table class="data-table">
+                        <thead>
+                        <tr>
+                            <th scope="col">Patient</th>
+                            <th scope="col">Patient ID</th>
+                            <th scope="col">Mobile</th>
+                            <th scope="col">Requested</th>
+                            <th scope="col">Method</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="nowrap">Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="request : ${view.requests}">
+                            <td class="cell-primary" th:text="${request.patientName}">Riya Sharma</td>
+                            <td th:text="${request.publicPatientId}">PAT-2026-0001</td>
+                            <td th:text="${request.mobile}">+91 98765 43210</td>
+                            <td th:text="${request.requestedOn}">25 Oct 2026, 10:00</td>
+                            <td th:text="${request.method}">Clinic approval</td>
+                            <td>
+                                <span class="badge"
+                                      th:classappend="'tone-' + ${request.statusTone}"
+                                      th:text="${request.status}">Pending</span>
+                            </td>
+                            <td>
+                                <a class="btn btn-ghost btn-sm"
+                                   th:href="@{/clinic/link-requests/{id}(id=${request.id})}">Review</a>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="empty-state" th:if="${view.requests.isEmpty()}">
+                    <h2>No link requests yet</h2>
+                    <p>Patients can request a link from My Profile. Requests appear here for identity
+                        verification before any clinic record is connected.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

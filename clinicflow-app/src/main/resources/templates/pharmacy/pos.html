@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Pharmacy POS · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Point of Sale',
+            ${pharmacy != null ? pharmacy.name + ' · scan a prescription, price the items and take payment' : 'Pharmacy point of sale'},
+            null, null, 'Live billing', 'success')}"></div>
+
+    <div class="content-body pos-page">
+        <div class="alert alert-error" th:if="${pharmacyError}" th:text="${pharmacyError}"></div>
+        <div class="alert alert-error" th:if="${dispenseError}" th:text="${dispenseError}"></div>
+        <div class="alert alert-success" th:if="${dispenseQueued}" th:text="${dispenseQueued}"></div>
+
+        <section class="card pos-scanner-card" th:if="${pharmacyError == null}">
+            <div class="card-body">
+                <form class="pos-scanner" th:action="@{/pharmacy/pos}" method="post" data-guard>
+                    <div class="pos-scanner-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 9v6M10 9v6M13 9v6M17 9v6"/>
+                        </svg>
+                    </div>
+                    <div class="pos-scanner-field">
+                        <label class="form-label" for="code">Prescription ID</label>
+                        <input class="form-input pos-code-input" id="code" name="code" required
+                               maxlength="32" minlength="32" autocomplete="off" spellcheck="false"
+                               autofocus
+                               placeholder="Scan or type the 32-character prescription ID">
+                        <div class="form-help">
+                            Case-sensitive. Uppercase letters and digits only.
+                        </div>
+                    </div>
+                    <div class="pos-scanner-actions">
+                        <button class="btn btn-primary btn-lg" type="submit" data-submit-guard>
+                            Analyze Prescription
+                        </button>
+                        <a class="btn btn-ghost" th:href="@{/pharmacy/prices}">Price list</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <div class="pos-dashboard-grid" th:if="${result == null and pharmacyError == null}">
+            <section class="card pos-today-card">
+                <div class="card-header">
+                    <h2 class="card-title">Today at the counter</h2>
+                    <span class="badge tone-success">Live</span>
+                </div>
+                <div class="card-body">
+                    <div class="pos-kpi-row">
+                        <div class="pos-kpi">
+                            <span class="pos-kpi-label">Sales</span>
+                            <strong th:text="${stats != null ? stats.salesToday : 0}">0</strong>
+                        </div>
+                        <div class="pos-kpi">
+                            <span class="pos-kpi-label">Income</span>
+                            <strong th:text="${'₹' + (stats != null ? stats.incomeToday : 0)}">₹0.00</strong>
+                        </div>
+                    </div>
+                    <div class="pos-empty-hint">
+                        <div class="pos-empty-mark" aria-hidden="true">IMS</div>
+                        <div>
+                            <h3>Ready for the next customer</h3>
+                            <p>Scan a prescription ID above to open the billing cart. Prices are remembered per medicine, so repeat sales take seconds.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Recent sales</h2>
+                    <a class="btn btn-ghost btn-sm" th:href="@{/pharmacy/finance}">Open finance</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-wrap" th:if="${stats != null and !#lists.isEmpty(stats.recentSales)}">
+                        <table class="data-table pos-recent-table">
+                            <thead>
+                            <tr><th>Receipt</th><th>Patient</th><th>When</th><th>Payment</th><th class="num">Total</th></tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="sale : ${stats.recentSales}">
+                                <td>
+                                    <a th:href="@{'/pharmacy/dispenses/' + ${sale.dispenseId}}"
+                                       th:text="${sale.saleNumber}">SALE-000001</a>
+                                    <div class="cell-muted" th:text="${sale.code}">CODE</div>
+                                </td>
+                                <td th:text="${sale.patient}">Patient</td>
+                                <td th:text="${sale.when}">—</td>
+                                <td><span class="badge tone-neutral" th:text="${sale.paymentMethod ?: 'CASH'}">CASH</span></td>
+                                <td class="num" th:text="${'₹' + (sale.total ?: 0)}">₹0.00</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="empty-state" th:if="${stats == null or #lists.isEmpty(stats.recentSales)}">
+                        <h2>No sales yet today</h2>
+                        <p>Completed POS sales appear here with their receipt number and total.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div th:if="${result != null and result.prescription == null}" class="pos-invalid-card card mt-4">
+            <div class="card-body">
+                <div class="pos-invalid-icon" aria-hidden="true">!</div>
+                <div>
+                    <span class="badge badge-lg" th:classappend="'tone-' + ${result.tone()}"
+                          th:text="${result.outcomeLabel()}">NOT FOUND</span>
+                    <h2 class="mt-2">Prescription could not be opened</h2>
+                    <p class="muted" th:text="${result.message}">Message</p>
+                    <a class="btn btn-primary" th:href="@{/pharmacy/pos}">Scan another prescription</a>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${result != null and result.prescription != null}">
+            <div class="pos-verification-strip" th:classappend="'tone-' + ${result.tone()}">
+                <div>
+                    <span class="badge badge-lg" th:classappend="'tone-' + ${result.tone()}"
+                          th:text="${result.outcomeLabel()}">VALID</span>
+                    <span th:text="${result.message}">Message</span>
+                </div>
+                <a class="btn btn-ghost btn-sm" th:href="@{/pharmacy/pos}">Clear sale</a>
+            </div>
+
+            <form id="pos-sale-form" class="pos-sale-grid" th:action="@{/pharmacy/dispense}" method="post"
+                  data-guard th:if="${result.canDispense}">
+                <input type="hidden" name="verificationId" th:value="${result.verificationId}">
+                <input type="hidden" name="returnTo" value="pos">
+
+                <section class="card pos-items-card">
+                    <div class="card-header pos-card-header">
+                        <div>
+                            <h2 class="card-title">Sale items</h2>
+                            <div class="cell-muted">
+                                <span th:text="${result.prescription.patientName}">Patient</span>
+                                <span> · </span>
+                                <span class="prescription-code" th:text="${result.prescription.code}">CODE</span>
+                            </div>
+                        </div>
+                        <div class="pos-header-meta">
+                            <span class="badge tone-info" th:text="${result.prescription.fulfilment}">Not dispensed</span>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table pos-items-table">
+                            <thead>
+                            <tr>
+                                <th>Medicine</th>
+                                <th class="num">Prescribed</th>
+                                <th class="num">Remaining</th>
+                                <th class="num">Qty</th>
+                                <th class="num">Unit price</th>
+                                <th class="num">Line total</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="item : ${result.prescription.items()}" data-pos-row>
+                                <td>
+                                    <div class="cell-primary" th:text="${item.medicine}">Medicine</div>
+                                    <div class="cell-muted">
+                                        <span th:text="${item.dosage ?: '—'}">—</span>
+                                        <span th:if="${item.frequency != null}" th:text="' · ' + ${item.frequency}"></span>
+                                        <span th:if="${item.instructions != null}" th:text="' · ' + ${item.instructions}"></span>
+                                    </div>
+                                </td>
+                                <td class="num" th:text="${item.quantity + ' ' + (item.unit ?: '')}">0</td>
+                                <td class="num">
+                                    <span class="badge"
+                                          th:classappend="${item.remaining == 0 ? 'tone-success' : 'tone-neutral'}"
+                                          th:text="${item.remaining}">0</span>
+                                </td>
+                                <td class="num">
+                                    <input class="form-input pos-qty-input" type="number" min="0" max="10000"
+                                           th:max="${item.remaining}" th:disabled="${item.remaining == 0}"
+                                           th:name="${'qty_' + item.id}" th:id="${'qty_' + item.id}"
+                                           th:value="${item.remaining}" data-qty
+                                           th:aria-label="${'Quantity of ' + item.medicine + ' to dispense'}">
+                                </td>
+                                <td class="num">
+                                    <div class="pos-price-wrap">
+                                        <span class="pos-currency">₹</span>
+                                        <input class="form-input pos-price-input" type="number" min="0"
+                                               step="0.01"
+                                               th:name="${'price_' + item.id}" th:id="${'price_' + item.id}"
+                                               th:value="${priceMap != null ? (priceMap.get(#strings.toLowerCase(item.medicine)) ?: 0) : 0}"
+                                               data-price
+                                               th:aria-label="${'Unit price of ' + item.medicine}">
+                                    </div>
+                                </td>
+                                <td class="num pos-line-total" data-line-total>₹0.00</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-body pos-items-footer">
+                        <div class="pos-helper">
+                            <strong>Tip:</strong> prices are saved to your medicine price list automatically.
+                            Adjust a price here for this sale and it becomes the default next time.
+                        </div>
+                        <a class="btn btn-ghost btn-sm" th:href="@{/pharmacy/prices}">Manage price list</a>
+                    </div>
+                </section>
+
+                <aside class="card pos-summary-card">
+                    <div class="card-header">
+                        <h2 class="card-title">Payment</h2>
+                        <span class="pos-receipt-label">Receipt on completion</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="pos-patient-block">
+                            <div class="pos-avatar"
+                                 th:text="${#strings.substring(result.prescription.patientName, 0, 1)}">P</div>
+                            <div>
+                                <strong th:text="${result.prescription.patientName}">Patient</strong>
+                                <div class="cell-muted"
+                                     th:text="${result.prescription.patientPublicId + ' · ' + result.prescription.patientMobile}">PAT</div>
+                            </div>
+                        </div>
+
+                        <dl class="pos-meta">
+                            <div><dt>Doctor</dt><dd th:text="${result.prescription.doctorName}">Doctor</dd></div>
+                            <div><dt>Clinic</dt><dd th:text="${result.prescription.clinicName}">Clinic</dd></div>
+                            <div><dt>Items</dt><dd th:text="${#lists.size(result.prescription.items())}">0</dd></div>
+                            <div><dt>Units</dt><dd data-units>0</dd></div>
+                        </dl>
+
+                        <div class="pos-totals">
+                            <div class="pos-total-row">
+                                <span>Subtotal</span>
+                                <strong data-subtotal>₹0.00</strong>
+                            </div>
+                            <div class="pos-total-row pos-discount-row">
+                                <label for="discount">Discount</label>
+                                <div class="pos-price-wrap">
+                                    <span class="pos-currency">₹</span>
+                                    <input class="form-input" id="discount" name="discount" type="number"
+                                           min="0" step="0.01" value="0" data-discount>
+                                </div>
+                            </div>
+                            <div class="pos-total-row pos-discount-row">
+                                <label for="taxRate">Tax %</label>
+                                <input class="form-input pos-tax-input" id="taxRate" name="taxRate"
+                                       type="number" min="0" max="100" step="0.01" value="0" data-tax>
+                            </div>
+                            <div class="pos-total-row pos-tax-row">
+                                <span>Tax</span>
+                                <strong data-tax-amount>₹0.00</strong>
+                            </div>
+                            <div class="pos-total-row pos-grand-total">
+                                <span>Total due</span>
+                                <strong data-total>₹0.00</strong>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="paymentMethod">Payment method</label>
+                            <select class="form-select" id="paymentMethod" name="paymentMethod" data-payment>
+                                <option value="CASH">Cash</option>
+                                <option value="CARD">Card</option>
+                                <option value="UPI">UPI</option>
+                                <option value="INSURANCE">Insurance</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="amountTendered">Amount tendered</label>
+                            <div class="pos-price-wrap">
+                                <span class="pos-currency">₹</span>
+                                <input class="form-input" id="amountTendered" name="amountTendered"
+                                       type="number" min="0" step="0.01" data-tendered
+                                       placeholder="Optional for card / UPI">
+                            </div>
+                            <div class="pos-quick-cash">
+                                <button type="button" class="pos-cash-chip" data-cash="exact">Exact</button>
+                                <button type="button" class="pos-cash-chip" data-cash="500">₹500</button>
+                                <button type="button" class="pos-cash-chip" data-cash="1000">₹1000</button>
+                                <button type="button" class="pos-cash-chip" data-cash="2000">₹2000</button>
+                            </div>
+                        </div>
+
+                        <div class="pos-total-row pos-change-row">
+                            <span>Change due</span>
+                            <strong data-change>—</strong>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="notes">Note</label>
+                            <input class="form-input" id="notes" name="notes" maxlength="500"
+                                   placeholder="Optional: batch, counselling note">
+                        </div>
+
+                        <div class="alert alert-info pos-fill-note" th:if="${result.prescription.watermark == null}">
+                            Partial fills are supported. The server blocks over-dispensing and reuses each
+                            verification only once.
+                        </div>
+
+                        <button class="btn btn-primary pos-complete-btn" type="submit" data-submit-guard>
+                            Complete sale &amp; dispense
+                        </button>
+                        <a class="btn btn-ghost pos-cancel-btn" th:href="@{/pharmacy/pos}">Cancel sale</a>
+                    </div>
+                </aside>
+            </form>
+
+            <div class="pos-locked-note card mt-4" th:if="${!result.canDispense}">
+                <div class="card-body">
+                    <h2>This prescription cannot be sold</h2>
+                    <p class="muted" th:text="${result.message}">Message</p>
+                    <a class="btn btn-primary" th:href="@{/pharmacy/pos}">Scan another prescription</a>
+                </div>
+            </div>
+
+            <section class="card mt-4">
+                <div class="card-header"><h2 class="card-title">Prescription details</h2></div>
+                <div class="card-body">
+                    <dl class="detail-list pos-detail-grid">
+                        <div><dt>Patient</dt><dd>
+                            <span th:text="${result.prescription.patientName}">Patient</span>
+                            <div class="cell-muted"
+                                 th:text="${result.prescription.patientPublicId + ' · DOB ' + result.prescription.patientDob}">PAT</div>
+                        </dd></div>
+                        <div><dt>Doctor</dt><dd th:text="${result.prescription.doctorName + (result.prescription.doctorSpecialization == null ? '' : ' · ' + result.prescription.doctorSpecialization)}">Doctor</dd></div>
+                        <div><dt>Clinic</dt><dd th:text="${result.prescription.clinicName + ' · ' + result.prescription.clinicCity}">Clinic</dd></div>
+                        <div><dt>Issued</dt><dd th:text="${result.prescription.issued}">—</dd></div>
+                        <div><dt>Expires</dt><dd th:text="${result.prescription.expires}">—</dd></div>
+                        <div><dt>Fulfilment</dt><dd>
+                            <span class="badge"
+                                  th:classappend="'tone-' + ${result.prescription.fulfilmentTone}"
+                                  th:text="${result.prescription.fulfilment}">Not dispensed</span>
+                        </dd></div>
+                    </dl>
+                </div>
+            </section>
+
+            <section class="card mt-4">
+                <div class="card-header"><h2 class="card-title">Dispense history</h2></div>
+                <div class="card-body">
+                    <div class="timeline" th:if="${!#lists.isEmpty(result.prescription.dispenses())}">
+                        <article class="timeline-item" th:each="dispense : ${result.prescription.dispenses()}">
+                            <div class="timeline-meta" th:text="${dispense.when + ' · ' + dispense.pharmacy}">—</div>
+                            <div th:each="line : ${dispense.items()}"
+                                 th:text="${line.medicine + ' × ' + line.quantity}">Medicine × 1</div>
+                            <div class="cell-muted" th:text="${dispense.pharmacist}">Pharmacist</div>
+                        </article>
+                    </div>
+                    <div class="empty-state" th:if="${#lists.isEmpty(result.prescription.dispenses())}">
+                        <h2>Not dispensed yet</h2>
+                        <p>This will be the first fill for this prescription.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <section class="card mt-4" th:if="${result == null and pharmacyError == null}">
+            <div class="card-header"><h2 class="card-title">How the POS works</h2></div>
+            <div class="card-body">
+                <ol class="muted pos-how-list">
+                    <li>Scan or type the exact 32-character Prescription ID.</li>
+                    <li>Confirm the medicine quantities. Unit prices are pre-filled from the price list.</li>
+                    <li>Add a discount or tax if needed, choose the payment method and complete the sale.</li>
+                    <li>The receipt is saved, stock is updated, and the sale total is posted to Finance as income automatically.</li>
+                </ol>
+            </div>
+        </section>
+    </div>
+
+<script th:inline="javascript">
+    (function () {
+        const codeInput = document.getElementById('code');
+        if (codeInput) {
+            codeInput.addEventListener('input', function () {
+                const cleaned = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                if (codeInput.value !== cleaned) {
+                    codeInput.value = cleaned;
+                }
+            });
+        }
+        const form = document.getElementById('pos-sale-form');
+        if (!form) {
+            return;
+        }
+        const money = new Intl.NumberFormat('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        const currency = value => '₹' + money.format(Number(value || 0));
+        const rows = Array.from(form.querySelectorAll('[data-pos-row]'));
+        const subtotalEl = form.querySelector('[data-subtotal]');
+        const taxEl = form.querySelector('[data-tax-amount]');
+        const totalEl = form.querySelector('[data-total]');
+        const changeEl = form.querySelector('[data-change]');
+        const unitsEl = form.querySelector('[data-units]');
+        const discountInput = form.querySelector('[data-discount]');
+        const taxInput = form.querySelector('[data-tax]');
+        const tenderedInput = form.querySelector('[data-tendered]');
+        const paymentInput = form.querySelector('[data-payment]');
+
+        function recalc() {
+            let subtotal = 0;
+            let units = 0;
+            rows.forEach(row => {
+                const qty = Number(row.querySelector('[data-qty]')?.value || 0);
+                const price = Number(row.querySelector('[data-price]')?.value || 0);
+                const line = Math.max(0, qty) * Math.max(0, price);
+                units += Math.max(0, qty);
+                subtotal += line;
+                row.querySelector('[data-line-total]').textContent = currency(line);
+            });
+            const discount = Math.min(Math.max(0, Number(discountInput.value || 0)), subtotal);
+            const taxable = Math.max(0, subtotal - discount);
+            const taxRate = Math.min(100, Math.max(0, Number(taxInput.value || 0)));
+            const tax = taxable * taxRate / 100;
+            const total = taxable + tax;
+            subtotalEl.textContent = currency(subtotal);
+            taxEl.textContent = currency(tax);
+            totalEl.textContent = currency(total);
+            unitsEl.textContent = String(units);
+
+            const tenderedRaw = tenderedInput.value.trim();
+            if (tenderedRaw === '') {
+                changeEl.textContent = '—';
+                tenderedInput.setCustomValidity('');
+            } else {
+                const tendered = Number(tenderedRaw);
+                const change = tendered - total;
+                changeEl.textContent = change >= 0 ? currency(change) : 'Short by ' + currency(-change);
+                changeEl.classList.toggle('is-short', change < 0);
+                tenderedInput.setCustomValidity(change < 0 ? 'Amount tendered is less than the total.' : '');
+            }
+            if (paymentInput.value !== 'CASH') {
+                tenderedInput.setCustomValidity('');
+            }
+        }
+
+        form.addEventListener('input', recalc);
+        form.addEventListener('change', recalc);
+        form.querySelectorAll('[data-cash]').forEach(button => {
+            button.addEventListener('click', () => {
+                const value = button.getAttribute('data-cash');
+                if (value === 'exact') {
+                    const discount = Math.min(Math.max(0, Number(discountInput.value || 0)), 1e12);
+                    const subtotal = rows.reduce((sum, row) => {
+                        const qty = Number(row.querySelector('[data-qty]')?.value || 0);
+                        const price = Number(row.querySelector('[data-price]')?.value || 0);
+                        return sum + Math.max(0, qty) * Math.max(0, price);
+                    }, 0);
+                    const taxable = Math.max(0, subtotal - discount);
+                    const tax = taxable * Math.min(100, Math.max(0, Number(taxInput.value || 0))) / 100;
+                    tenderedInput.value = (taxable + tax).toFixed(2);
+                } else {
+                    tenderedInput.value = Number(value).toFixed(2);
+                }
+                recalc();
+            });
+        });
+        recalc();
+    })();
+</script>
+</div>
+</body>
+</html>

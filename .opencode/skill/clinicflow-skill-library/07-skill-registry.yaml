@@ -1,0 +1,445 @@
+# Machine-readable registry. All skills DRAFT: evals written, not yet executed.
+skills:
+- id: clinicflow-build-orchestrator
+  name: ClinicFlow Build Orchestrator
+  category: orchestration
+  type: CORE
+  description: Master entry point for developing the Clinic, Pharmacy and Patient Management application
+    (working name ClinicFlow) end to end with a corporate-ERP-grade UI/UX.
+  triggers:
+  - whenever the user asks to build, scaffold, continue, extend or review any part of this app, or says
+    'develop the application' - it sequences the other ClinicFlow skills, enforces the UI/UX Definition
+    of Done (consistent shell, smooth navigation, breadcrumbs on every screen) and stops at human approval
+    gates
+  inputs:
+  - '- `01-application-understanding.md` and the open `REQUIRES-CONFIRMATION` list. - Tech stack: **Java
+    + Microsoft SQL Server (confirmed)**. Fr'
+  outputs:
+  - '- A running, navigable application increment per wave. - A short handoff note per module: done, gated,
+    assumptions.'
+  dependencies:
+  - clinicflow-product-spec
+  dependents: []
+  risk: MEDIUM
+  security_level: MEDIUM
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: clinicflow-product-spec
+  name: ClinicFlow Product Spec
+  category: product
+  type: CORE
+  description: Convert the ClinicFlow application document into testable requirements with IDs, acceptance
+    criteria and a traceability matrix, and track unresolved questions.
+  triggers:
+  - at project start, when the source document changes, when a requirement is ambiguous, or when someone
+    asks 'what exactly should this feature do'
+  inputs:
+  - Source document (patient modules, workflows A-D, tables, scope table); stakeholder answers.
+  outputs:
+  - '`02-requirements.md`, updated register in `01-application-understanding.md`, traceability matrix.'
+  dependencies: []
+  dependents:
+  - clinicflow-build-orchestrator
+  - clinicflow-architecture-and-data
+  - erp-design-system
+  risk: LOW
+  security_level: LOW
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: clinicflow-architecture-and-data
+  name: ClinicFlow Architecture and Data
+  category: architecture
+  type: ENGINEERING
+  description: 'Define the system architecture and relational schema for ClinicFlow: modular monolith,
+    API layering, 12 source tables plus inferred supporting tables, constraints and migrations.'
+  triggers:
+  - when scaffolding the project, adding or changing a table, writing migrations, or deciding where logic
+    belongs
+  inputs:
+  - Requirements, stack choice (`REQUIRES-CONFIRMATION`).
+  outputs:
+  - Project skeleton, migrations, schema docs, seed script.
+  dependencies:
+  - clinicflow-product-spec
+  dependents:
+  - healthcare-access-control-and-audit
+  - smtp-email-notifications
+  - clinic-operations-and-masters
+  - patient-identity-and-linking
+  - clinic-discovery-and-booking
+  - platform-admin-console
+  risk: MEDIUM
+  security_level: MEDIUM
+  human_approval: true
+  status: DRAFT
+  version: 1.1.0
+- id: erp-design-system
+  name: ERP Design System
+  category: frontend
+  type: PLATFORM
+  description: 'Design tokens and component rules that give ClinicFlow a clean, consistent corporate-ERP
+    look: colour, type, spacing, data tables, forms, status badges, cards, dialogs, toasts, and loading/empty/error
+    states.'
+  triggers:
+  - whenever styling, creating a UI component, choosing colours, or reviewing visual consistency
+  inputs:
+  - Brand preferences (optional; default corporate palette provided).
+  outputs:
+  - '`tokens.css`, component library, Storybook-style gallery (if stack allows).'
+  dependencies:
+  - clinicflow-product-spec
+  dependents:
+  - erp-app-shell-navigation
+  - erp-screen-blueprints
+  - pharmacy-workspace
+  risk: LOW
+  security_level: LOW
+  human_approval: false
+  status: DRAFT
+  version: 1.0.0
+- id: erp-app-shell-navigation
+  name: ERP App Shell and Navigation
+  category: frontend
+  type: PLATFORM
+  description: 'Build the corporate-ERP application shell for ClinicFlow: top bar, collapsible role-based
+    sidebar, breadcrumb bar, page header, responsive behaviour and the route map for Super Admin, Clinic,
+    Doctor, Patient and Pharmacy.'
+  triggers:
+  - whenever adding a page or route, changing navigation, implementing breadcrumbs, or when a user reports
+    confusing navigation
+  inputs:
+  - Role-permission matrix (from access-control), route list, design tokens.
+  outputs:
+  - Shell component, route config, breadcrumb component, navigation tests.
+  dependencies:
+  - erp-design-system
+  - healthcare-access-control-and-audit
+  dependents:
+  - erp-screen-blueprints
+  risk: LOW
+  security_level: LOW
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: erp-screen-blueprints
+  name: ERP Screen Blueprints
+  category: frontend
+  type: ENGINEERING
+  description: 'Screen-by-screen UI specifications for all ClinicFlow modules (super admin, clinic, doctor,
+    patient, pharmacy): layout pattern, content, actions and required states, using reusable list/detail/form/wizard/dashboard
+    patterns.'
+  triggers:
+  - when building or reviewing any screen, so the UI is clear, consistent and ERP-like
+  inputs:
+  - Domain skill field lists, shell, design system.
+  outputs:
+  - Implemented screens and a screen checklist per module.
+  dependencies:
+  - erp-app-shell-navigation
+  - erp-design-system
+  - patient-identity-and-linking
+  - clinic-discovery-and-booking
+  - consultation-and-medical-history
+  - prescription-lifecycle
+  - pharmacy-workspace
+  - clinic-operations-and-masters
+  - platform-admin-console
+  dependents:
+  - clinicflow-qa-and-uat
+  risk: LOW
+  security_level: LOW
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: healthcare-access-control-and-audit
+  name: Healthcare Access Control and Audit
+  category: security
+  type: SECURITY
+  description: Role-based access control, record-ownership enforcement, authentication hardening, PHI
+    minimisation and audit logging for ClinicFlow.
+  triggers:
+  - when implementing login or sessions, adding any endpoint that returns patient, appointment or prescription
+    data, reviewing for IDOR/enumeration, or defining roles and permissions
+  inputs:
+  - Role list, endpoint list, data model.
+  outputs:
+  - Auth module, permission matrix, audit log, security tests.
+  dependencies:
+  - clinicflow-architecture-and-data
+  dependents:
+  - erp-app-shell-navigation
+  - clinic-operations-and-masters
+  - patient-identity-and-linking
+  - clinic-discovery-and-booking
+  - consultation-and-medical-history
+  - clinicflow-delivery-and-ops
+  - platform-admin-console
+  - prescription-lifecycle
+  - pharmacy-workspace
+  risk: HIGH
+  security_level: HIGH
+  human_approval: true
+  status: DRAFT
+  version: 1.1.0
+- id: smtp-email-notifications
+  name: SMTP Email Notifications
+  category: integration
+  type: INTEGRATION
+  description: 'SMTP email integration for ClinicFlow: templates, queued sending, retries, idempotency
+    and the EmailLogs table for email verification, password reset and prescription ID delivery.'
+  triggers:
+  - when sending any email, configuring SMTP, debugging delivery, or adding a notification template
+  inputs:
+  - SMTP host/port/credentials (environment), templates, event payload.
+  outputs:
+  - Mailer module, templates, EmailLogs, retry worker.
+  dependencies:
+  - clinicflow-architecture-and-data
+  dependents:
+  - patient-identity-and-linking
+  - clinicflow-delivery-and-ops
+  - platform-admin-console
+  - prescription-lifecycle
+  risk: MEDIUM
+  security_level: MEDIUM
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: clinic-operations-and-masters
+  name: Clinic Operations and Masters
+  category: domain
+  type: DOMAIN
+  description: 'Clinic-side master data and dashboard for ClinicFlow: clinic profile (address, coordinates,
+    hours, fees), doctors and specializations, doctor schedules, patient masters (including walk-ins),
+    and the clinic dashboard.'
+  triggers:
+  - when building the Clinic role's Dashboard, Patient Masters or Doctors modules, or doctor availability
+  inputs:
+  - Requirements, schema.
+  outputs:
+  - Clinic profile, Doctors, Schedules, Patient Masters, Dashboard.
+  dependencies:
+  - clinicflow-architecture-and-data
+  - healthcare-access-control-and-audit
+  dependents:
+  - erp-screen-blueprints
+  - patient-identity-and-linking
+  - clinic-discovery-and-booking
+  - clinicflow-qa-and-uat
+  - platform-admin-console
+  risk: MEDIUM
+  security_level: MEDIUM
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: platform-admin-console
+  name: Platform Admin Console (Super Admin)
+  category: domain
+  type: DOMAIN
+  description: 'Super Admin role for ClinicFlow: one dashboard, clinic enrollment, read-only view of patient
+    masters, platform reports and SMTP settings.'
+  triggers:
+  - when building anything under /admin, enrolling clinics, configuring email delivery, or giving the
+    platform owner cross-clinic visibility
+  inputs:
+  - 'Confirmed Super Admin scope: Dashboard, Clinic Enrollment, Patient Masters (view), Reports, SMTP
+    Settings.'
+  outputs:
+  - /admin screens, enrollment service, SMTP settings service, report queries, tests.
+  dependencies:
+  - clinicflow-architecture-and-data
+  - healthcare-access-control-and-audit
+  - smtp-email-notifications
+  - clinic-operations-and-masters
+  dependents:
+  - erp-screen-blueprints
+  - clinicflow-qa-and-uat
+  risk: HIGH
+  security_level: HIGH
+  human_approval: true
+  status: DRAFT
+  version: 1.0.0
+- id: patient-identity-and-linking
+  name: Patient Identity and Linking
+  category: domain
+  type: DOMAIN
+  description: Patient self-registration, email verification, login/logout, password reset, profile management,
+    account status, and safe linking of a patient account to existing clinic records.
+  triggers:
+  - when building registration, login, My Profile, or the account-linking flow
+  inputs:
+  - Registration fields from the source (personal, address, optional medical).
+  outputs:
+  - Auth screens, profile module, link workflow, tests.
+  dependencies:
+  - clinicflow-architecture-and-data
+  - healthcare-access-control-and-audit
+  - smtp-email-notifications
+  - clinic-operations-and-masters
+  dependents:
+  - erp-screen-blueprints
+  - clinic-discovery-and-booking
+  - clinicflow-qa-and-uat
+  risk: HIGH
+  security_level: HIGH
+  human_approval: false
+  status: DRAFT
+  version: 1.0.0
+- id: clinic-discovery-and-booking
+  name: Clinic Discovery and Appointment Booking
+  category: domain
+  type: DOMAIN
+  description: 'Nearby-clinic search (name, city, area, postal code, distance from browser location) and
+    the appointment lifecycle: slot generation, double-booking prevention, booking wizard, status machine,
+    cancel and reschedule.'
+  triggers:
+  - when building Find Nearby Clinics, patient or clinic Appointments modules, slot logic, or appointment
+    statuses
+  inputs:
+  - Clinic coordinates, DoctorSchedules, patient session.
+  outputs:
+  - Search, booking wizard, appointment lists/detail for patient and clinic, concurrency tests.
+  dependencies:
+  - clinicflow-architecture-and-data
+  - healthcare-access-control-and-audit
+  - clinic-operations-and-masters
+  - patient-identity-and-linking
+  dependents:
+  - erp-screen-blueprints
+  - consultation-and-medical-history
+  - clinicflow-qa-and-uat
+  risk: MEDIUM
+  security_level: MEDIUM
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: consultation-and-medical-history
+  name: Consultation and Medical History
+  category: domain
+  type: DOMAIN
+  description: Consultation records and the patient's chronological medical history timeline.
+  triggers:
+  - when building the doctor's consultation screen (opened from an appointment), recording diagnoses and
+    follow-ups, handling corrections, or building My Medical History
+  inputs:
+  - Appointment in In Consultation state, doctor session.
+  outputs:
+  - Consultation screen, history timeline, addendum workflow.
+  dependencies:
+  - clinic-discovery-and-booking
+  - healthcare-access-control-and-audit
+  dependents:
+  - erp-screen-blueprints
+  - clinicflow-qa-and-uat
+  - prescription-lifecycle
+  risk: HIGH
+  security_level: HIGH
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: prescription-lifecycle
+  name: Prescription Lifecycle
+  category: domain
+  type: DOMAIN
+  description: Digital prescription creation by the Doctor, the 32-character random Prescription ID, medicine
+    items with quantities, validity/expiry, cancellation, fulfilment status (not/partially/fully dispensed)
+    and patient viewing, printing and email.
+  triggers:
+  - when building Doctor or Clinic Prescriptions, Patient > My Prescriptions, ID generation, statuses
+    or expiry logic
+  inputs:
+  - Finalised consultation, Doctor session, medicine entries.
+  outputs:
+  - Doctor prescription form, lists, detail, PDF/print, status logic, ID generator, tests.
+  dependencies:
+  - consultation-and-medical-history
+  - smtp-email-notifications
+  - healthcare-access-control-and-audit
+  dependents:
+  - erp-screen-blueprints
+  - clinicflow-qa-and-uat
+  - pharmacy-workspace
+  risk: HIGH
+  security_level: HIGH
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: pharmacy-workspace
+  name: Pharmacy Workspace, Verification and Partial Dispensing
+  category: domain
+  type: INDUSTRY
+  description: 'Pharmacy role: planned pharmacy tables, dashboard, prescription verification by the 32-character
+    Prescription ID, EXPIRED/CANCELLED watermarks that block dispensing, partial-fill dispensing with
+    remaining-quantity tracking, verification log, pharmacy users and reports.'
+  triggers:
+  - when building any Pharmacy module, dispensing, or pharmacy database tables
+  inputs:
+  - 32-character Prescription ID (typed, pasted, or scanned), pharmacist session.
+  outputs:
+  - Pharmacy migrations, screens, dispensing service, verification log, reports, tests.
+  dependencies:
+  - prescription-lifecycle
+  - healthcare-access-control-and-audit
+  - erp-design-system
+  dependents:
+  - erp-screen-blueprints
+  - clinicflow-qa-and-uat
+  risk: HIGH
+  security_level: HIGH
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: clinicflow-qa-and-uat
+  name: ClinicFlow QA and UAT
+  category: quality
+  type: QUALITY
+  description: 'Test strategy and acceptance for ClinicFlow: unit/integration/E2E for workflows A-D, role-access
+    matrix, concurrency tests, and a UI/UX acceptance checklist (breadcrumbs, navigation, responsiveness,
+    accessibility).'
+  triggers:
+  - before declaring any module or release complete
+  inputs:
+  - Requirements, navigation map, seed data.
+  outputs:
+  - Test suites, QA report, UAT scripts.
+  dependencies:
+  - erp-screen-blueprints
+  - clinic-discovery-and-booking
+  - consultation-and-medical-history
+  - prescription-lifecycle
+  - pharmacy-workspace
+  - patient-identity-and-linking
+  - clinic-operations-and-masters
+  - platform-admin-console
+  dependents:
+  - clinicflow-delivery-and-ops
+  risk: LOW
+  security_level: LOW
+  human_approval: false
+  status: DRAFT
+  version: 1.1.0
+- id: clinicflow-delivery-and-ops
+  name: ClinicFlow Delivery and Operations
+  category: operations
+  type: OPERATIONS
+  description: Build, configuration, deployment, backup, monitoring and runbooks for ClinicFlow, with
+    human approval gates for production deploys and destructive migrations.
+  triggers:
+  - when setting up environments or CI, preparing a release, deploying, restoring data, or handling an
+    incident
+  inputs:
+  - Passing QA report, hosting choice (`REQUIRES-CONFIRMATION`).
+  outputs:
+  - CI config, deployment guide, runbooks, approval record template.
+  dependencies:
+  - clinicflow-qa-and-uat
+  - healthcare-access-control-and-audit
+  - smtp-email-notifications
+  dependents: []
+  risk: HIGH
+  security_level: HIGH
+  human_approval: true
+  status: DRAFT
+  version: 1.1.0

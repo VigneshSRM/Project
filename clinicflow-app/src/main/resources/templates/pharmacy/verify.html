@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Verify Prescription · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Verify Prescription',
+            ${pharmacy != null ? pharmacy.name + ' · enter the patient’s 32-character prescription ID' : 'Enter the patient’s 32-character prescription ID.'},
+            null, null, 'Case-sensitive', 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-error" th:if="${pharmacyError}" th:text="${pharmacyError}"></div>
+        <div class="alert alert-success" th:if="${dispenseQueued}" th:text="${dispenseQueued}"></div>
+        <div class="alert alert-error" th:if="${dispenseError}" th:text="${dispenseError}"></div>
+
+        <section class="card">
+            <div class="card-body">
+                <form class="search-bar" th:action="@{/pharmacy/verify}" method="post" data-guard
+                      th:if="${pharmacyError == null}">
+                    <div style="flex:1;min-width:280px">
+                        <label class="form-label" for="code">Prescription ID</label>
+                        <input class="form-input prescription-code" id="code" name="code" required
+                               maxlength="32" minlength="32" autocomplete="off" spellcheck="false"
+                               style="letter-spacing:2px;font-family:ui-monospace,Consolas,monospace"
+                               placeholder="32 uppercase letters and digits">
+                        <div class="form-help">
+                            IDs use uppercase letters and digits only. The lookup is case-sensitive, so
+                            <code>abc</code> does not match <code>ABC</code>.
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" type="submit" data-submit-guard>Verify</button>
+                    <a class="btn btn-ghost" th:href="@{/pharmacy/dashboard}">Dashboard</a>
+                </form>
+            </div>
+        </section>
+
+        <div th:if="${result != null}">
+            <section class="card mt-4" th:classappend="${result.prescription != null and result.prescription.watermark != null} ? ' watermark' : ''"
+                     th:attr="data-watermark=${result.prescription != null ? result.prescription.watermark : null}">
+                <div class="card-body">
+                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+                        <div>
+                            <div class="kpi-label">Verification outcome</div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap">
+                                <span class="badge badge-lg" th:classappend="'tone-' + ${result.tone()}"
+                                      th:text="${result.outcomeLabel()}">VALID</span>
+                                <span th:text="${result.message}">Message</span>
+                            </div>
+                        </div>
+                        <a class="btn btn-secondary" th:href="@{/pharmacy/verify}">Verify another</a>
+                    </div>
+                </div>
+            </section>
+
+            <div class="profile-layout mt-4" th:if="${result.prescription != null}">
+                <div>
+                    <section class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Prescription</h2>
+                            <span class="prescription-code" th:text="${result.prescription.code}">CODE</span>
+                        </div>
+                        <div class="card-body">
+                            <dl class="detail-list">
+                                <div><dt>Patient</dt><dd>
+                                    <span th:text="${result.prescription.patientName}">Patient</span>
+                                    <div class="cell-muted"
+                                         th:text="${result.prescription.patientPublicId + ' · DOB ' + result.prescription.patientDob}">PAT</div>
+                                    <div class="cell-muted" th:text="${result.prescription.patientMobile ?: 'No mobile'}">—</div>
+                                </dd></div>
+                                <div><dt>Doctor</dt><dd th:text="${result.prescription.doctorName + (result.prescription.doctorSpecialization == null ? '' : ' · ' + result.prescription.doctorSpecialization)}">Doctor</dd></div>
+                                <div><dt>Clinic</dt><dd th:text="${result.prescription.clinicName + ' · ' + result.prescription.clinicCity}">Clinic</dd></div>
+                                <div><dt>Issued</dt><dd th:text="${result.prescription.issued}">—</dd></div>
+                                <div><dt>Expires</dt><dd th:text="${result.prescription.expires}">—</dd></div>
+                                <div><dt>Fulfilment</dt><dd>
+                                    <span class="badge"
+                                          th:classappend="'tone-' + ${result.prescription.fulfilmentTone}"
+                                          th:text="${result.prescription.fulfilment}">Not dispensed</span>
+                                </dd></div>
+                            </dl>
+                        </div>
+                    </section>
+
+                    <section class="card mt-4">
+                        <div class="card-header">
+                            <h2 class="card-title">Medicines</h2>
+                            <span class="muted" th:if="${!result.canDispense}">This prescription cannot be dispensed.</span>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead>
+                                <tr><th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration</th>
+                                    <th>Prescribed</th><th>Dispensed</th><th>Remaining</th><th>Lifetime</th>
+                                    <th th:if="${result.canDispense}">Dispense now</th></tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="item : ${result.prescription.items()}">
+                                    <td>
+                                        <div class="cell-primary" th:text="${item.medicine}">Medicine</div>
+                                        <div class="cell-muted" th:text="${item.instructions ?: ''}">Instructions</div>
+                                    </td>
+                                    <td th:text="${item.dosage ?: '—'}">—</td>
+                                    <td th:text="${item.frequency ?: '—'}">—</td>
+                                    <td th:text="${item.duration ?: '—'}">—</td>
+                                    <td th:text="${item.quantity + ' ' + (item.unit ?: '')}">—</td>
+                                    <td th:text="${item.dispensed}">0</td>
+                                    <td>
+                                        <span class="badge"
+                                              th:classappend="${item.remaining == 0 ? 'tone-success' : 'tone-neutral'}"
+                                              th:text="${item.remaining}">0</span>
+                                    </td>
+                                    <td th:text="${item.lifetime} ? 'Yes' : 'No'">No</td>
+                                    <td th:if="${result.canDispense}">
+                                        <input class="form-input" type="number" min="0" max="10000"
+                                               th:max="${item.remaining}" th:disabled="${item.remaining == 0}"
+                                               th:name="${'qty_' + item.id}" th:id="${'qty_' + item.id}"
+                                               th:form="'dispense-form'"
+                                               th:value="${item.remaining}" style="max-width:110px"
+                                               th:aria-label="${'Quantity of ' + item.medicine + ' to dispense'}">
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section class="card mt-4" th:if="${result.canDispense}">
+                        <div class="card-header"><h2 class="card-title">Record dispense</h2></div>
+                        <div class="card-body">
+                            <form id="dispense-form" th:action="@{/pharmacy/dispense}" method="post" data-guard>
+                                <input type="hidden" name="verificationId"
+                                       th:value="${result.verificationId}">
+                                <input type="hidden" name="returnTo" value="verify">
+                                <div class="alert alert-info" style="margin-top:0">
+                                    The sale total is calculated automatically from your medicine price list.
+                                    Use the POS for discounts, tax and payment capture.
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="notes">Dispense notes</label>
+                                    <textarea class="form-input" id="notes" name="notes" maxlength="500"
+                                              placeholder="Optional: brand substituted, batch, or counselling note"></textarea>
+                                </div>
+                                <div class="alert alert-info" th:if="${result.prescription.watermark == null}">
+                                    Adjust quantities for a partial fill. Over-dispensing is blocked on the server,
+                                    and this verification can be used only once. Verify the ID again for a later fill.
+                                </div>
+                                <div class="form-actions" style="justify-content:flex-start">
+                                    <button class="btn btn-primary" type="submit" data-submit-guard>
+                                        Confirm dispense
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </section>
+                </div>
+
+                <aside>
+                    <section class="card">
+                        <div class="card-header"><h2 class="card-title">Dispense history</h2></div>
+                        <div class="card-body">
+                            <div class="timeline" th:if="${!#lists.isEmpty(result.prescription.dispenses())}">
+                                <article class="timeline-item" th:each="dispense : ${result.prescription.dispenses()}">
+                                    <div class="timeline-meta" th:text="${dispense.when + ' · ' + dispense.pharmacy}">—</div>
+                                    <div th:each="line : ${dispense.items()}"
+                                         th:text="${line.medicine + ' × ' + line.quantity}">Medicine × 1</div>
+                                    <div class="cell-muted" th:text="${dispense.pharmacist}">Pharmacist</div>
+                                </article>
+                            </div>
+                            <div class="empty-state" th:if="${#lists.isEmpty(result.prescription.dispenses())}">
+                                <h2>Not dispensed yet</h2>
+                                <p>This will be the first fill for this prescription.</p>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="card mt-4">
+                        <div class="card-body">
+                            <div class="kpi-label">Watermark policy</div>
+                            <p class="muted" style="margin:8px 0 0">
+                                EXPIRED and CANCELLED prescriptions are blocked before any quantity can be
+                                recorded. A fully dispensed prescription is also blocked.
+                            </p>
+                        </div>
+                    </section>
+                </aside>
+            </div>
+
+            <section class="card mt-4" th:if="${result.prescription == null}">
+                <div class="empty-state">
+                    <h2>No prescription found</h2>
+                    <p>Check the ID from the patient’s email or printed prescription. IDs are exactly 32
+                        uppercase characters and are case-sensitive.</p>
+                    <a class="btn btn-primary" th:href="@{/pharmacy/verify}">Try again</a>
+                </div>
+            </section>
+        </div>
+
+        <section class="card mt-4" th:if="${result == null and pharmacyError == null}">
+            <div class="card-header"><h2 class="card-title">How verification works</h2></div>
+            <div class="card-body">
+                <ol class="muted" style="margin:0;padding-left:20px;line-height:1.8">
+                    <li>Enter the exact 32-character Prescription ID.</li>
+                    <li>The system checks cancellation, expiry and remaining quantities.</li>
+                    <li>Dispense all or part of the prescription. Each fill is logged with the pharmacist.</li>
+                    <li>Verify the ID again for a later partial fill; the remaining quantities are recalculated.</li>
+                </ol>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

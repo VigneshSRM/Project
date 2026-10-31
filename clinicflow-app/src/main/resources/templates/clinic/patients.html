@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Patient Masters · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Patient Masters',
+            'Clinic-entered and patient-account records linked to this clinic.',
+            'New patient',
+            '/clinic/patients/new',
+            'Clinic scoped',
+            'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${patientSaved}" th:text="${patientSaved}"></div>
+        <div class="alert alert-error" th:if="${patientError}" th:text="${patientError}"></div>
+
+        <section class="card">
+            <div class="card-body">
+                <form class="search-bar" th:action="@{/clinic/patients}" method="get" role="search">
+                    <input class="form-input" type="search" name="q" th:value="${query}"
+                           placeholder="Search patient ID, name, email or mobile" aria-label="Search patients">
+                    <button class="btn btn-primary" type="submit">Search</button>
+                    <a class="btn btn-ghost" th:if="${!#strings.isEmpty(query)}" th:href="@{/clinic/patients}">Clear</a>
+                </form>
+                <form class="search-bar mt-4" th:action="@{/clinic/patients/link}" method="post">
+                    <input class="form-input" type="text" name="publicPatientId" required
+                           placeholder="Link an existing patient by public ID (PAT-…)" aria-label="Public patient ID">
+                    <button class="btn btn-secondary" type="submit">Link existing patient</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Patients</h2>
+                <span class="muted" th:text="${#lists.size(patients) + ' records'}">0 records</span>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr><th>Patient ID</th><th>Name</th><th>DOB</th><th>Gender</th><th>Contact</th><th>Source</th><th>Linked</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${patients}">
+                        <td><a class="cell-primary" th:href="@{'/clinic/patients/' + ${row.id}}"
+                               th:text="${row.publicPatientId}">PAT-0000</a></td>
+                        <td th:text="${row.name}">Name</td>
+                        <td th:text="${row.dob}">—</td>
+                        <td th:text="${row.gender}">—</td>
+                        <td>
+                            <div th:text="${row.mobile}">—</div>
+                            <div class="cell-muted" th:text="${row.email}">—</div>
+                        </td>
+                        <td><span class="badge"
+                                  th:classappend="${row.account == 'Account linked' ? 'tone-success' : 'tone-neutral'}"
+                                  th:text="${row.account}">Walk-in</span></td>
+                        <td th:text="${row.linkedOn}">—</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(patients)}">
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <h2>No patients</h2>
+                                <p>Create a patient master for a walk-in, or link an existing patient record.</p>
+                                <a class="btn btn-primary" th:href="@{/clinic/patients/new}">New patient</a>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

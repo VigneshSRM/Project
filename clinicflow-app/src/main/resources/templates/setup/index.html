@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/auth}">
+<head>
+    <title>First-time setup · IMS</title>
+</head>
+<body>
+<div layout:fragment="auth-content">
+    <h1 class="auth-title">Create the platform administrator</h1>
+    <p class="auth-subtitle">
+        IMS ships without demo accounts. This one-time step creates the Super Admin
+        who will enroll clinics and pharmacies.
+    </p>
+
+    <div class="alert alert-info">
+        This page disappears as soon as the first Super Admin exists.
+    </div>
+    <form th:action="@{/setup}" th:object="${setupForm}" method="post" data-guard>
+        <div class="alert alert-error" th:if="${#fields.hasGlobalErrors()}">
+            <div th:each="error : ${#fields.globalErrors()}" th:text="${error}"></div>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="email">Administrator email <span class="required">*</span></label>
+            <input class="form-input" id="email" type="email" th:field="*{email}"
+                   th:classappend="${#fields.hasErrors('email')} ? ' input-error' : ''"
+                   autocomplete="email" required placeholder="admin@yourclinic.example">
+            <div class="form-error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></div>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="password">Password <span class="required">*</span></label>
+            <input class="form-input" id="password" type="password" th:field="*{password}"
+                   th:classappend="${#fields.hasErrors('password')} ? ' input-error' : ''"
+                   autocomplete="new-password" aria-describedby="setup-password-help" required>
+            <div class="form-help" id="setup-password-help">
+                At least 10 characters, including a letter and a number.
+            </div>
+            <div class="form-error" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="confirmPassword">Confirm password <span class="required">*</span></label>
+            <input class="form-input" id="confirmPassword" type="password" th:field="*{confirmPassword}"
+                   th:classappend="${#fields.hasErrors('confirmPassword')} ? ' input-error' : ''"
+                   autocomplete="new-password" required>
+            <div class="form-error" th:if="${#fields.hasErrors('confirmPassword')}"
+                 th:errors="*{confirmPassword}"></div>
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%">Create administrator</button>
+    </form>
+
+    <div class="auth-footer">
+        <span>Already set up?</span>
+        <a th:href="@{/login}">Back to sign in</a>
+    </div>
+</div>
+</body>
+</html>

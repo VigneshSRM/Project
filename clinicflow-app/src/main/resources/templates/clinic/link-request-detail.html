@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${pageTitle} + ' · IMS'">Link request</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${'Link request #' + view.id},
+            ${view.patientName + ' asked to connect their account to ' + view.clinicName + '.'},
+            null,
+            null,
+            ${view.status},
+            ${view.statusTone})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${approved}" th:text="${approved}"></div>
+        <div class="alert alert-success" th:if="${rejected}" th:text="${rejected}"></div>
+        <div class="alert alert-error" th:if="${decisionError}" th:text="${decisionError}"></div>
+
+        <div class="profile-layout">
+            <div>
+                <section class="card" aria-labelledby="identity-title">
+                    <div class="card-header">
+                        <h2 class="card-title" id="identity-title">Account identity</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="profile-identity">
+                            <div class="readonly">
+                                <div class="form-label">Patient ID</div>
+                                <strong th:text="${view.publicPatientId}">PAT-2026-0001</strong>
+                            </div>
+                            <div class="readonly">
+                                <div class="form-label">Full name</div>
+                                <strong th:text="${view.patientName}">Riya Sharma</strong>
+                            </div>
+                            <div class="readonly">
+                                <div class="form-label">Date of birth</div>
+                                <strong th:text="${view.dob}">18 Apr 1994</strong>
+                            </div>
+                            <div class="readonly">
+                                <div class="form-label">Gender</div>
+                                <strong th:text="${view.gender}">Female</strong>
+                            </div>
+                            <div class="readonly">
+                                <div class="form-label">Mobile</div>
+                                <strong th:text="${view.mobile}">+91 98765 43210</strong>
+                            </div>
+                            <div class="readonly">
+                                <div class="form-label">Email</div>
+                                <strong th:text="${view.email}">patient@example.com</strong>
+                            </div>
+                            <div class="readonly" style="grid-column:1/-1">
+                                <div class="form-label">Address</div>
+                                <strong th:text="${view.addressLine1}">44 Lake View Road</strong>
+                                <div th:if="${view.addressLine2 != '-'}" th:text="${view.addressLine2}"></div>
+                                <div class="cell-muted">
+                                    <span th:text="${view.city}">Bengaluru</span>,
+                                    <span th:text="${view.state}">Karnataka</span>
+                                    <span th:text="${view.postalCode}">560034</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card mt-4" aria-labelledby="duplicate-title">
+                    <div class="card-header">
+                        <h2 class="card-title" id="duplicate-title">Duplicate check</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning" th:if="${!view.duplicates.isEmpty()}">
+                            Another clinic patient record has the same name and date of birth. If that is the
+                            correct record, enter its patient ID in the decision panel to move the account onto it.
+                            The account's own row is retained without a login so audit history is not lost.
+                        </div>
+                        <div class="alert alert-info" th:if="${view.duplicates.isEmpty()}">
+                            No other clinic patient record has the same name and date of birth.
+                        </div>
+                        <div class="table-wrap" th:if="${!view.duplicates.isEmpty()}">
+                            <table class="data-table">
+                                <thead>
+                                <tr>
+                                    <th scope="col">Patient ID</th>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">DOB</th>
+                                    <th scope="col">Mobile</th>
+                                    <th scope="col">Linked</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="match : ${view.duplicates}">
+                                    <td th:text="${match.publicPatientId}">PAT-2025-0014</td>
+                                    <td th:text="${match.name}">Riya Sharma</td>
+                                    <td th:text="${match.dob}">18 Apr 1994</td>
+                                    <td th:text="${match.mobile}">+91 98765 43210</td>
+                                    <td th:text="${match.linkedOn}">10 Jan 2026</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card" aria-labelledby="request-title">
+                    <div class="card-header">
+                        <h2 class="card-title" id="request-title">Request details</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <div class="form-label">Clinic</div>
+                            <strong th:text="${view.clinicName}">City Care Clinic</strong>
+                        </div>
+                        <div class="form-group">
+                            <div class="form-label">Method</div>
+                            <strong th:text="${view.method}">Clinic approval</strong>
+                        </div>
+                        <div class="form-group">
+                            <div class="form-label">Requested</div>
+                            <strong th:text="${view.requestedOn}">25 Oct 2026, 10:00</strong>
+                        </div>
+                        <div class="form-group" th:if="${view.resolvedOn != '-'}">
+                            <div class="form-label">Resolved</div>
+                            <strong th:text="${view.resolvedOn}">25 Oct 2026, 11:00</strong>
+                            <div class="form-help">
+                                By <span th:text="${view.resolvedBy}">clinicadmin@example.com</span>
+                            </div>
+                        </div>
+                        <div class="form-group" th:if="${view.resolutionNote != null}">
+                            <div class="form-label">Resolution note</div>
+                            <span th:text="${view.resolutionNote}">Verified at the front desk.</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card mt-4" aria-labelledby="decision-title" th:if="${view.canDecide}">
+                    <div class="card-header">
+                        <h2 class="card-title" id="decision-title">Verify and decide</h2>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/clinic/link-requests/{id}/approve(id=${view.id})}"
+                              th:object="${approvalForm}" method="post" data-guard>
+                            <div class="form-group">
+                                <label class="form-label" for="clinicPatientPublicId">Clinic patient ID
+                                    (optional)</label>
+                                <input class="form-input" id="clinicPatientPublicId" type="text"
+                                       th:field="*{clinicPatientPublicId}" placeholder="e.g. PAT-2026-0001">
+                                <div class="form-help">
+                                    Leave blank to use the account's own patient record. Enter a clinic patient ID
+                                    from your patient master to move the account onto that existing record;
+                                    appointments, prescriptions and link history are preserved.
+                                </div>
+                                <div class="form-error"
+                                     th:if="${#fields.hasErrors('clinicPatientPublicId')}"
+                                     th:errors="*{clinicPatientPublicId}"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="note">Resolution note (optional)</label>
+                                <textarea class="form-input" id="note" rows="2" th:field="*{note}"></textarea>
+                                <div class="form-error" th:if="${#fields.hasErrors('note')}"
+                                     th:errors="*{note}"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-row" for="identityVerified">
+                                    <input id="identityVerified" type="checkbox" th:field="*{identityVerified}">
+                                    <span>I verified the patient's identity against the clinic record (in person
+                                        or by calling the number on file).</span>
+                                </label>
+                                <div class="form-error" th:if="${#fields.hasErrors('identityVerified')}"
+                                     th:errors="*{identityVerified}"></div>
+                            </div>
+                            <button class="btn btn-primary" type="submit">Approve link</button>
+                        </form>
+
+                        <details class="reject-panel">
+                            <summary>Reject this request</summary>
+                            <form th:action="@{/clinic/link-requests/{id}/reject(id=${view.id})}"
+                                  th:object="${rejectionForm}" method="post" data-guard>
+                                <div class="form-group">
+                                    <label class="form-label" for="rejectNote">Reason shown to the patient</label>
+                                    <textarea class="form-input" id="rejectNote" rows="2"
+                                              th:field="*{note}"></textarea>
+                                    <div class="form-error" th:if="${#fields.hasErrors('note')}"
+                                         th:errors="*{note}"></div>
+                                </div>
+                                <button class="btn btn-danger" type="submit">Reject request</button>
+                            </form>
+                        </details>
+                    </div>
+                </section>
+
+                <section class="card mt-4" aria-labelledby="resolved-title" th:unless="${view.canDecide}">
+                    <div class="card-header">
+                        <h2 class="card-title" id="resolved-title">Resolved</h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="muted" style="margin-top:0">
+                            This request has been resolved. No further action is available.
+                        </p>
+                        <a class="btn btn-secondary" th:href="@{/clinic/link-requests}">Back to link requests</a>
+                    </div>
+                </section>
+
+                <div class="mt-4" th:if="${view.canDecide}">
+                    <a class="btn btn-secondary" th:href="@{/clinic/link-requests}">Back to link requests</a>
+                </div>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

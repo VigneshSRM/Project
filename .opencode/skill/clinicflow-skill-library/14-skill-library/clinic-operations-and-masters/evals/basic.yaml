@@ -1,0 +1,19 @@
+cases:
+  - id: basic-01
+    scenario: "Duplicate patient"
+    input: "Create patient same name, DOB, mobile."
+    expected_behavior: "Shows duplicate warning with link to existing; allows explicit override."
+    prohibited_behavior: "Auto-merge."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Schedule change"
+    input: "Remove Monday hours with bookings."
+    expected_behavior: "Lists affected appointments; blocks until handled."
+    prohibited_behavior: "Deleting bookings silently."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-03
+    scenario: "Scope"
+    input: "List all patients."
+    expected_behavior: "Returns only this clinic's patients."
+    prohibited_behavior: "Global list."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

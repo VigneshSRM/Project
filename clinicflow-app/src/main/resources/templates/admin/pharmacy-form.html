@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Enroll pharmacy · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Enroll pharmacy',
+            'Register the pharmacy and invite the administrator who will manage pharmacists and dispensing.',
+            null, null, 'Step 1 of 2', 'info')}"></div>
+
+    <div class="content-body">
+        <form th:action="@{/admin/pharmacies}" th:object="${pharmacyForm}" method="post" data-guard>
+            <div class="alert alert-error" th:if="${#fields.hasGlobalErrors()}">
+                <div th:each="error : ${#fields.globalErrors()}" th:text="${error}"></div>
+            </div>
+            <section class="card form-section">
+                <div class="card-header"><h2 class="card-title">Pharmacy details</h2></div>
+                <div class="card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="name">Pharmacy name <span class="required">*</span></label>
+                            <input class="form-input" id="name" th:field="*{name}" required maxlength="200">
+                            <div class="form-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="licenceNumber">Licence number <span class="required">*</span></label>
+                            <input class="form-input" id="licenceNumber" th:field="*{licenceNumber}" required maxlength="50">
+                            <div class="form-error" th:if="${#fields.hasErrors('licenceNumber')}"
+                                 th:errors="*{licenceNumber}"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="addressLine1">Address line 1 <span class="required">*</span></label>
+                            <input class="form-input" id="addressLine1" th:field="*{addressLine1}" required maxlength="200">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="addressLine2">Address line 2</label>
+                            <input class="form-input" id="addressLine2" th:field="*{addressLine2}" maxlength="200">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="city">City <span class="required">*</span></label>
+                            <input class="form-input" id="city" th:field="*{city}" required maxlength="100">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="district">District</label>
+                            <input class="form-input" id="district" th:field="*{district}" maxlength="100">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="state">State <span class="required">*</span></label>
+                            <input class="form-input" id="state" th:field="*{state}" required maxlength="100">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="postalCode">Postal code <span class="required">*</span></label>
+                            <input class="form-input" id="postalCode" th:field="*{postalCode}" required maxlength="20">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="phone">Phone</label>
+                            <input class="form-input" id="phone" th:field="*{phone}" maxlength="30">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="email">Public email</label>
+                            <input class="form-input" id="email" type="email" th:field="*{email}" maxlength="254">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card form-section mt-4">
+                <div class="card-header"><h2 class="card-title">Pharmacy administrator</h2></div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        The administrator receives a single-use invitation and chooses their own password.
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="adminEmail">Administrator email <span class="required">*</span></label>
+                            <input class="form-input" id="adminEmail" type="email" th:field="*{adminEmail}"
+                                   required maxlength="254" placeholder="admin@pharmacy.example">
+                            <div class="form-error" th:if="${#fields.hasErrors('adminEmail')}"
+                                 th:errors="*{adminEmail}"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="form-actions">
+                <a class="btn btn-secondary" th:href="@{/admin/pharmacies}">Cancel</a>
+                <button class="btn btn-primary" type="submit" data-submit-guard>Enroll pharmacy and send invitation</button>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

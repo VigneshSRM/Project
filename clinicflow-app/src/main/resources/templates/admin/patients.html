@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Patient Masters · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Patient Masters',
+            'Read-only cross-clinic patient index with masked contact details.',
+            null, null, 'Read only', 'neutral')}"></div>
+
+    <div class="content-body">
+        <section class="card">
+            <div class="card-body">
+                <form class="search-bar" th:action="@{/admin/patients}" method="get" role="search">
+                    <input class="form-input" type="search" name="q" th:value="${query}"
+                           placeholder="Search public patient ID, name, email or mobile" aria-label="Search patients">
+                    <button class="btn btn-primary" type="submit">Search</button>
+                    <a class="btn btn-ghost" th:if="${!#strings.isEmpty(query)}" th:href="@{/admin/patients}">Clear</a>
+                </form>
+            </div>
+        </section>
+
+        <section class="card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Patient index</h2>
+                <span class="muted" th:text="${#lists.size(patients) + ' matching records'}">0 matching records</span>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr><th>Patient ID</th><th>Name</th><th>DOB</th><th>Mobile</th><th>Email</th><th>Clinics</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${patients}">
+                        <td><a class="cell-primary" th:href="@{'/admin/patients/' + ${row.id}}"
+                               th:text="${row.publicPatientId}">PAT-0000</a></td>
+                        <td th:text="${row.name}">Name</td>
+                        <td th:text="${row.dob}">—</td>
+                        <td th:text="${row.mobile}">—</td>
+                        <td th:text="${row.email}">—</td>
+                        <td th:text="${#strings.isEmpty(row.clinics) ? '—' : row.clinics}">—</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(patients)}">
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <h2>No matching patients</h2>
+                                <p>Patients appear here after a clinic creates a master record or a patient registers.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

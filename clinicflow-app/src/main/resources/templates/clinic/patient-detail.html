@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Patient record · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${patient.name},
+            ${'Patient ID ' + patient.publicPatientId + ' · ' + patient.dob + ' · ' + (patient.gender == null ? 'Gender not set' : patient.gender)},
+            'Edit patient',
+            ${'/clinic/patients/' + patient.id + '/edit'},
+            ${patient.accountEmail != null ? 'Account linked' : 'Walk-in'},
+            ${patient.accountEmail != null ? 'success' : 'neutral'})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${patientSaved}" th:text="${patientSaved}"></div>
+
+        <div class="profile-layout">
+            <div>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Contact and demographics</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Date of birth</dt><dd th:text="${patient.dob}">—</dd></div>
+                            <div><dt>Gender</dt><dd th:text="${patient.gender == null ? '—' : patient.gender}">—</dd></div>
+                            <div><dt>Mobile</dt><dd th:text="${patient.mobile ?: '—'}">—</dd></div>
+                            <div><dt>Email</dt><dd th:text="${patient.email ?: '—'}">—</dd></div>
+                            <div><dt>Address</dt><dd>
+                                <span th:text="${patient.addressLine1 ?: '—'}">—</span>
+                                <span th:if="${patient.addressLine2 != null}"><br><span th:text="${patient.addressLine2}"></span></span>
+                                <span th:if="${patient.city != null}"><br><span th:text="${patient.city}"></span>,
+                                    <span th:text="${patient.state}"></span> <span th:text="${patient.postalCode}"></span></span>
+                            </dd></div>
+                            <div><dt>Emergency contact</dt><dd>
+                                <span th:text="${patient.emergencyName ?: '—'}">—</span>
+                                <span th:if="${patient.emergencyPhone != null}" th:text="${' · ' + patient.emergencyPhone}"></span>
+                            </dd></div>
+                            <div><dt>Account</dt><dd th:text="${patient.accountEmail ?: 'No patient account linked'}">—</dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4">
+                    <div class="card-header"><h2 class="card-title">Medical summary</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Blood group</dt><dd th:text="${patient.bloodGroup ?: '—'}">—</dd></div>
+                            <div><dt>Allergies</dt><dd th:text="${patient.allergies ?: '—'}">—</dd></div>
+                            <div><dt>Existing conditions</dt><dd th:text="${patient.conditions ?: '—'}">—</dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4">
+                    <div class="card-header"><h2 class="card-title">Appointments at this clinic</h2></div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Appointment</th><th>When</th><th>Doctor</th><th>Status</th></tr></thead>
+                            <tbody>
+                            <tr th:each="appointment : ${patient.appointments()}">
+                                <td><a class="cell-primary" th:href="@{'/clinic/appointments/' + ${appointment.id}}"
+                                       th:text="${appointment.publicId}">APT-0000</a></td>
+                                <td th:text="${appointment.when}">—</td>
+                                <td th:text="${appointment.doctor}">—</td>
+                                <td><span class="badge" th:classappend="'tone-' + ${appointment.tone}"
+                                          th:text="${appointment.status}">BOOKED</span></td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(patient.appointments())}">
+                                <td colspan="4" class="cell-muted">No appointments at this clinic.</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="card mt-4">
+                    <div class="card-header"><h2 class="card-title">Prescriptions</h2></div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Prescription ID</th><th>Issued</th><th>Status</th></tr></thead>
+                            <tbody>
+                            <tr th:each="prescription : ${patient.prescriptions()}">
+                                <td><a class="cell-primary prescription-code"
+                                       th:href="@{'/clinic/prescriptions/' + ${prescription.id}}"
+                                       th:text="${prescription.code}">CODE</a></td>
+                                <td th:text="${prescription.issued}">—</td>
+                                <td>
+                                    <span class="badge" th:classappend="${prescription.status == 'CANCELLED' ? 'tone-danger' : (prescription.watermark == 'EXPIRED' ? 'tone-warning' : 'tone-success')}"
+                                          th:text="${prescription.status == 'CANCELLED' ? 'CANCELLED' : (prescription.watermark == 'EXPIRED' ? 'EXPIRED' : 'VALID')}">VALID</span>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(patient.prescriptions())}">
+                                <td colspan="3" class="cell-muted">No prescriptions at this clinic.</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Quick actions</h2></div>
+                    <div class="card-body stack-4">
+                        <a class="btn btn-primary" th:href="@{/clinic/appointments}">Open appointment desk</a>
+                        <a class="btn btn-secondary" th:href="@{/clinic/prescriptions}">Clinic prescriptions</a>
+                        <a class="btn btn-ghost" th:href="@{/clinic/patients}">Back to patients</a>
+                    </div>
+                </section>
+                <section class="card mt-4">
+                    <div class="card-body">
+                        <div class="stat-row">
+                            <div><span class="kpi-value" th:text="${#lists.size(patient.appointments())}">0</span><span class="kpi-label">Appointments</span></div>
+                            <div><span class="kpi-value" th:text="${#lists.size(patient.prescriptions())}">0</span><span class="kpi-label">Prescriptions</span></div>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

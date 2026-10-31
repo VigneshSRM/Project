@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Unexpected error · IMS</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div class="error-page">
+    <div class="error-card">
+        <div class="error-code" th:text="${status != null ? status : '!'}">!</div>
+        <h1 style="margin-top:0">Unexpected error</h1>
+        <p class="muted" th:text="${message != null and !#strings.isEmpty(message) ? message : 'The request could not be completed.'}">
+            The request could not be completed.
+        </p>
+        <a class="btn btn-primary" th:href="@{/}">Go to my dashboard</a>
+    </div>
+</div>
+</body>
+</html>

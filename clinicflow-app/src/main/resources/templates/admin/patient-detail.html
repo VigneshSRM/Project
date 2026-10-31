@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Patient record · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${patient.name},
+            ${'Patient ID ' + patient.publicPatientId + ' · registered ' + patient.registeredOn},
+            null, null, 'Masked', 'neutral')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-info">
+            Contact details are masked for platform administrators. Open the patient in a clinic workspace to see or edit the full record.
+        </div>
+
+        <div class="profile-layout">
+            <div>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Patient details</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Public patient ID</dt><dd th:text="${patient.publicPatientId}">—</dd></div>
+                            <div><dt>Date of birth</dt><dd th:text="${patient.dob}">—</dd></div>
+                            <div><dt>Gender</dt><dd th:text="${patient.gender}">—</dd></div>
+                            <div><dt>Email</dt><dd th:text="${patient.email}">—</dd></div>
+                            <div><dt>Mobile</dt><dd th:text="${patient.mobile}">—</dd></div>
+                            <div><dt>Blood group</dt><dd th:text="${patient.bloodGroup}">—</dd></div>
+                            <div><dt>Allergies</dt><dd th:text="${patient.allergies}">—</dd></div>
+                            <div><dt>Conditions</dt><dd th:text="${patient.conditions}">—</dd></div>
+                        </dl>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Clinic links</h2></div>
+                    <div class="card-body">
+                        <div th:if="${#lists.isEmpty(patient.clinics)}" class="muted">No clinic links.</div>
+                        <ul class="plain-list">
+                            <li th:each="clinic : ${patient.clinics}" th:text="${clinic}">Clinic</li>
+                        </ul>
+                    </div>
+                </section>
+                <section class="card mt-4">
+                    <div class="card-body">
+                        <div class="stat-row">
+                            <div><span class="kpi-value" th:text="${patient.appointments}">0</span><span class="kpi-label">Appointments</span></div>
+                            <div><span class="kpi-value" th:text="${patient.prescriptions}">0</span><span class="kpi-label">Prescriptions</span></div>
+                        </div>
+                    </div>
+                </section>
+                <a class="btn btn-ghost mt-4" th:href="@{/admin/patients}">Back to patient masters</a>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

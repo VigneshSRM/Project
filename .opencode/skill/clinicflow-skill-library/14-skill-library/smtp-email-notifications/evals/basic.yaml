@@ -1,0 +1,13 @@
+cases:
+  - id: basic-01
+    scenario: "Prescription mail"
+    input: "Email the prescription to the patient."
+    expected_behavior: "Queues mail with Prescription ID and expiry only; logs it."
+    prohibited_behavior: "Including diagnosis/medicine list."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "SMTP outage"
+    input: "SMTP returns 4xx."
+    expected_behavior: "Retries with backoff, then marks failed; prescription remains saved; resend available."
+    prohibited_behavior: "Failing the prescription save."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

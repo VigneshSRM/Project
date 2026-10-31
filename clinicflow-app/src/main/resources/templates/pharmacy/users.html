@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Pharmacy Users · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Pharmacy Users',
+            ${pharmacy.name + ' · administrators and pharmacists who can verify and dispense prescriptions'},
+            null, null, ${#lists.size(users) + ' accounts'}, 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${userSaved}" th:text="${userSaved}"></div>
+        <div class="alert alert-error" th:if="${userError}" th:text="${userError}"></div>
+
+        <div class="profile-layout" th:if="${canManage}">
+            <div>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Team accounts</h2></div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                            <tr><th>User</th><th>Role</th><th>Joined</th><th>Invitation</th><th>Access</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="row : ${users}">
+                                <td>
+                                    <div class="cell-primary" th:text="${row.email}">user@example.com</div>
+                                    <div class="cell-muted" th:if="${row.self}">You</div>
+                                </td>
+                                <td th:text="${row.role}">Pharmacist</td>
+                                <td th:text="${row.created}">—</td>
+                                <td>
+                                    <span class="badge"
+                                          th:classappend="${row.userStatus == 'PENDING' ? 'tone-warning' : (row.userStatus == 'ACTIVE' ? 'tone-success' : 'tone-danger')}"
+                                          th:text="${row.userStatus}">ACTIVE</span>
+                                </td>
+                                <td>
+                                    <span class="badge"
+                                          th:classappend="${row.userStatus == 'PENDING' ? 'tone-warning' : (row.status == 'ACTIVE' ? 'tone-success' : 'tone-neutral')}"
+                                          th:text="${row.userStatus == 'PENDING' ? 'PENDING' : row.status}">ACTIVE</span>
+                                </td>
+                                <td>
+                                    <div class="table-actions">
+                                        <form th:if="${row.userStatus == 'PENDING'}"
+                                              th:action="@{'/pharmacy/users/' + ${row.pharmacyUserId} + '/resend'}"
+                                              method="post">
+                                            <button class="btn btn-ghost btn-sm" type="submit">Resend invite</button>
+                                        </form>
+                                        <form th:if="${row.status == 'ACTIVE' and !row.self}"
+                                              th:action="@{'/pharmacy/users/' + ${row.pharmacyUserId} + '/status'}"
+                                              method="post"
+                                              onsubmit="return confirm('Disable access for this pharmacy user?')">
+                                            <input type="hidden" name="enabled" value="false">
+                                            <button class="btn btn-ghost btn-sm" type="submit">Disable</button>
+                                        </form>
+                                        <form th:if="${row.status == 'DISABLED' and row.userStatus == 'ACTIVE'}"
+                                              th:action="@{'/pharmacy/users/' + ${row.pharmacyUserId} + '/status'}"
+                                              method="post">
+                                            <input type="hidden" name="enabled" value="true">
+                                            <button class="btn btn-ghost btn-sm" type="submit">Enable</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Invite a pharmacist</h2></div>
+                    <div class="card-body">
+                        <form th:action="@{/pharmacy/users/invite}" method="post" data-guard>
+                            <div class="form-group">
+                                <label class="form-label" for="email">Email address</label>
+                                <input class="form-input" id="email" type="email" name="email" required
+                                       maxlength="254" autocomplete="off" placeholder="pharmacist@example.com">
+                                <div class="form-help">
+                                    The pharmacist receives a single-use invitation and chooses a password
+                                    with at least 10 characters including a letter and a number.
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" type="submit" data-submit-guard>
+                                Send invitation
+                            </button>
+                        </form>
+                    </div>
+                </section>
+                <section class="card mt-4">
+                    <div class="card-body">
+                        <div class="alert alert-info" style="margin:0">
+                            At least one active pharmacy administrator must remain. You cannot disable your
+                            own account.
+                        </div>
+                    </div>
+                </section>
+            </aside>
+        </div>
+
+        <section class="card" th:if="${!canManage}">
+            <div class="card-body">
+                <div class="empty-state">
+                    <h2>Read-only access</h2>
+                    <p>Only an active pharmacy administrator can invite, resend, enable or disable users.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

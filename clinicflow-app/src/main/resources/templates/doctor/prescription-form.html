@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>New prescription · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'New prescription',
+            ${appointment.patientName + ' · ' + appointment.patientPublicId + ' · ' + appointment.clinicName},
+            null, null, 'Draft medication order', 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-error" th:if="${prescriptionError}" th:text="${prescriptionError}"></div>
+
+        <form th:action="@{'/doctor/appointments/' + ${appointment.id} + '/prescription'}"
+              th:object="${prescriptionForm}" method="post" data-guard>
+            <div class="alert alert-error" th:if="${#fields.hasGlobalErrors()}">
+                <div th:each="error : ${#fields.globalErrors()}" th:text="${error}"></div>
+            </div>
+            <section class="card form-section">
+                <div class="card-header">
+                    <h2 class="card-title">Medicines</h2>
+                    <span class="muted">Add at least one medicine. Blank rows are ignored.</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-actions" style="justify-content:flex-start;margin-bottom:12px;flex-wrap:wrap">
+                        <input class="form-input" id="medicineSearch" list="medicineSearchOptions"
+                               placeholder="Search clinic inventory medicine" style="max-width:320px">
+                        <datalist id="medicineSearchOptions">
+                            <option th:each="item : ${inventory}"
+                                    th:value="${item.medicine + (item.dosage != null ? ' - ' + item.dosage : '')}"></option>
+                        </datalist>
+                        <button type="button" class="btn btn-secondary" id="addFromInventory">Add from inventory</button>
+                        <button type="button" class="btn btn-secondary" id="addMedicineRow">Add blank medicine</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table prescription-items">
+                            <thead>
+                            <tr>
+                                <th scope="col">Medicine</th>
+                                <th scope="col">Dosage</th>
+                                <th scope="col">Frequency</th>
+                                <th scope="col">Duration</th>
+                                <th scope="col">Qty</th>
+                                <th scope="col">Unit</th>
+                                <th scope="col">Instructions</th>
+                                <th scope="col">Lifetime</th>
+                                <th scope="col"></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="item, stat : *{items}">
+                                <td>
+                                    <select class="form-select" th:field="*{items[__${stat.index}__].medicine}">
+                                        <option value="">Medicine</option>
+                                        <option th:each="option : ${medicineOptions}" th:value="${option}" th:text="${option}"></option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select" th:field="*{items[__${stat.index}__].dosage}">
+                                        <option value="">Dosage</option>
+                                        <option th:each="option : ${dosageOptions}" th:value="${option}" th:text="${option}"></option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select" th:field="*{items[__${stat.index}__].frequency}">
+                                        <option value="">Frequency</option>
+                                        <option value="Once daily">Once daily</option>
+                                        <option value="Twice daily">Twice daily</option>
+                                        <option value="Three times daily">Three times daily</option>
+                                        <option value="Every 6 hours">Every 6 hours</option>
+                                        <option value="Every 8 hours">Every 8 hours</option>
+                                        <option value="As needed">As needed</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select" th:field="*{items[__${stat.index}__].duration}">
+                                        <option value="">Duration</option>
+                                        <option value="3 days">3 days</option>
+                                        <option value="5 days">5 days</option>
+                                        <option value="7 days">7 days</option>
+                                        <option value="10 days">10 days</option>
+                                        <option value="14 days">14 days</option>
+                                        <option value="1 month">1 month</option>
+                                        <option value="2 months">2 months</option>
+                                        <option value="3 months">3 months</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input class="form-input" type="number" min="1" max="10000"
+                                           th:field="*{items[__${stat.index}__].quantity}" placeholder="1">
+                                </td>
+                                <td>
+                                    <select class="form-select" th:field="*{items[__${stat.index}__].quantityUnit}">
+                                        <option value="">Unit</option>
+                                        <option value="Tablet">Tablet</option>
+                                        <option value="Capsule">Capsule</option>
+                                        <option value="Syrup">Syrup</option>
+                                        <option value="Suspension">Suspension</option>
+                                        <option value="Injection">Injection</option>
+                                        <option value="Cream">Cream</option>
+                                        <option value="Ointment">Ointment</option>
+                                        <option value="Gel">Gel</option>
+                                        <option value="Drops">Drops</option>
+                                        <option value="Eye Drops">Eye Drops</option>
+                                        <option value="Nasal Spray">Nasal Spray</option>
+                                        <option value="Inhaler">Inhaler</option>
+                                        <option value="Powder">Powder</option>
+                                        <option value="Sachet">Sachet</option>
+                                        <option value="Suppository">Suppository</option>
+                                        <option value="Lotion">Lotion</option>
+                                        <option value="Mouthwash">Mouthwash</option>
+                                        <option value="Oral Solution">Oral Solution</option>
+                                        <option value="Dispersible Tablet">Dispersible Tablet</option>
+                                        <option value="Chewable Tablet">Chewable Tablet</option>
+                                        <option value="Effervescent Tablet">Effervescent Tablet</option>
+                                        <option value="Extended-Release Tablet">Extended-Release Tablet</option>
+                                        <option value="Oral Suspension">Oral Suspension</option>
+                                        <option value="Eye Ointment">Eye Ointment</option>
+                                        <option value="Ear Drops">Ear Drops</option>
+                                        <option value="Nasal Drops">Nasal Drops</option>
+                                        <option value="Transdermal Patch">Transdermal Patch</option>
+                                        <option value="Shampoo">Shampoo</option>
+                                        <option value="Gargle">Gargle</option>
+                                        <option value="Lozenges">Lozenges</option>
+                                        <option value="Mouth Paint">Mouth Paint</option>
+                                        <option value="Nebulizer Solution">Nebulizer Solution</option>
+                                        <option value="IV Infusion">IV Infusion</option>
+                                        <option value="Dental Gel">Dental Gel</option>
+                                        <option value="Medicated Soap">Medicated Soap</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select" th:field="*{items[__${stat.index}__].instructions}">
+                                        <option value="">Instructions</option>
+                                        <option value="before food">before food</option>
+                                        <option value="after food">after food</option>
+                                        <option value="before and after food">before and after food</option>
+                                        <option value="half tablet before and after">half tablet before and after</option>
+                                        <option value="Take with food">Take with food</option>
+                                        <option value="Take after meals">Take after meals</option>
+                                        <option value="Before bedtime">Before bedtime</option>
+                                        <option value="As needed">As needed</option>
+                                    </select>
+                                </td>
+                                <td style="text-align:center">
+                                    <input type="checkbox" th:field="*{items[__${stat.index}__].lifetime}"
+                                           th:aria-label="'Lifetime medicine ' + ${stat.count}">
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm remove-medicine">Remove</button>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="form-actions" style="justify-content:flex-start;margin-top:12px">
+                        <button type="button" class="btn btn-secondary" id="addMedicineRow">Add medicine</button>
+                    </div>
+                    <datalist id="medicineOptions">
+                        <option th:each="item : ${inventory}" th:value="${item.medicine}"></option>
+                    </datalist>
+                    <datalist id="dosageOptions">
+                        <option th:each="item : ${inventory}" th:value="${item.dosage}" th:if="${item.dosage != null}"></option>
+                    </datalist>
+                    <datalist id="frequencyOptions">
+                        <option value="Once daily"></option>
+                        <option value="Twice daily"></option>
+                        <option value="Three times daily"></option>
+                        <option value="Every 6 hours"></option>
+                        <option value="Every 8 hours"></option>
+                        <option value="As needed"></option>
+                    </datalist>
+                    <datalist id="durationOptions">
+                        <option value="3 days"></option>
+                        <option value="5 days"></option>
+                        <option value="7 days"></option>
+                        <option value="10 days"></option>
+                        <option value="14 days"></option>
+                    </datalist>
+                    <datalist id="unitOptions">
+                        <option value="tablet"></option>
+                        <option value="capsule"></option>
+                        <option value="ml"></option>
+                        <option value="mg"></option>
+                        <option value="drop"></option>
+                    </datalist>
+                    <datalist id="instructionOptions">
+                        <option value="Take with food"></option>
+                        <option value="Take after meals"></option>
+                        <option value="Before bedtime"></option>
+                        <option value="As needed"></option>
+                    </datalist>
+                    <div class="form-grid mt-4">
+                        <div class="form-group">
+                            <label class="form-label" for="validDays">Prescription validity (days)</label>
+                            <input class="form-input" id="validDays" type="number" min="1" max="365"
+                                   th:field="*{validDays}" required>
+                            <div class="form-help">Expiry is calculated from the issue time. A pharmacy will block an expired prescription.</div>
+                            <div class="form-error" th:if="${#fields.hasErrors('validDays')}" th:errors="*{validDays}"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="alert alert-info mt-4">
+                A unique 32-character prescription ID is generated when you issue this prescription. The patient
+                receives it by email; the pharmacy must enter it exactly, including letter case.
+            </div>
+
+            <div class="form-actions">
+                <a class="btn btn-secondary" th:href="@{'/doctor/appointments/' + ${appointment.id}}">Cancel</a>
+                <button class="btn btn-primary" type="submit" data-submit-guard>Issue prescription</button>
+            </div>
+        </form>
+    </div>
+    <script th:inline="javascript">
+    const inventory = /*[[${inventory}]]*/ [];
+
+    (function () {
+        const tbody = document.querySelector('.prescription-items tbody');
+        const addBlankButton = document.getElementById('addMedicineRow');
+        const addInventoryButton = document.getElementById('addFromInventory');
+        const searchInput = document.getElementById('medicineSearch');
+        if (!tbody) return;
+
+        const inventoryByKey = {};
+        (inventory || []).forEach(function (item) {
+            const key = item.medicine + (item.dosage ? ' - ' + item.dosage : '');
+            inventoryByKey[key] = item;
+        });
+
+        function bindRemove(button) {
+            button.addEventListener('click', function () {
+                const row = button.closest('tr');
+                if (tbody.querySelectorAll('tr').length > 1) {
+                    row.remove();
+                } else {
+                    row.querySelectorAll('input, select').forEach(function (control) {
+                        if (control.type === 'checkbox') {
+                            control.checked = false;
+                        } else {
+                            control.value = '';
+                        }
+                    });
+                }
+            });
+        }
+
+        tbody.querySelectorAll('.remove-medicine').forEach(bindRemove);
+
+        function appendRow(values) {
+            const firstRow = tbody.querySelector('tr');
+            const clone = firstRow.cloneNode(true);
+            const newIndex = tbody.querySelectorAll('tr').length;
+            clone.querySelectorAll('input, select').forEach(function (control) {
+                if (control.name) {
+                    control.name = control.name.replace(/items\[\d+\]/, 'items[' + newIndex + ']');
+                }
+                if (control.type === 'checkbox') {
+                    control.checked = false;
+                } else {
+                    control.value = '';
+                }
+            });
+            const removeButton = clone.querySelector('.remove-medicine');
+            if (removeButton) bindRemove(removeButton);
+
+            function setValue(field, value) {
+                const element = clone.querySelector('[name="items[' + newIndex + '].' + field + '"]');
+                if (element && value != null) {
+                    element.value = value;
+                }
+            }
+
+            if (values) {
+                setValue('medicine', values.medicine);
+                setValue('dosage', values.dosage);
+                setValue('frequency', values.defaultFrequency);
+                setValue('duration', values.defaultDuration);
+                setValue('quantity', values.defaultQuantity);
+                setValue('quantityUnit', values.defaultUnit);
+                setValue('instructions', values.defaultInstructions);
+            }
+
+            tbody.appendChild(clone);
+        }
+
+        if (addBlankButton) {
+            addBlankButton.addEventListener('click', function () {
+                appendRow(null);
+            });
+        }
+
+        if (addInventoryButton && searchInput) {
+            addInventoryButton.addEventListener('click', function () {
+                const item = inventoryByKey[searchInput.value];
+                if (!item) {
+                    window.alert('Select a medicine from the inventory suggestions.');
+                    return;
+                }
+                appendRow(item);
+                searchInput.value = '';
+            });
+        }
+    })();
+</script>
+</th:block>
+</body>
+</html>

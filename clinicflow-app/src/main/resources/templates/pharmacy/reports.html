@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Pharmacy Reports · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Pharmacy Reports',
+            ${report.pharmacyName + ' · verification outcomes and dispensing activity for the last 7 days'},
+            null, null, ${report.active ? 'ACTIVE' : 'NOT ACTIVE'},
+            ${report.active ? 'success' : 'danger'})}"></div>
+
+    <div class="content-body">
+        <section class="kpi-grid" aria-label="Pharmacy metrics">
+            <div class="kpi-card tone-primary">
+                <div class="kpi-label">Verifications today</div>
+                <div class="kpi-value" th:text="${report.verificationsToday}">0</div>
+                <div class="kpi-hint" th:text="${report.validToday + ' valid'}">0 valid</div>
+            </div>
+            <div class="kpi-card tone-warning">
+                <div class="kpi-label">Not found today</div>
+                <div class="kpi-value" th:text="${report.notFoundToday}">0</div>
+                <div class="kpi-hint">case-sensitive lookups</div>
+            </div>
+            <div class="kpi-card tone-success">
+                <div class="kpi-label">Dispenses today</div>
+                <div class="kpi-value" th:text="${report.dispensesToday}">0</div>
+                <div class="kpi-hint">completed fills</div>
+            </div>
+            <div class="kpi-card tone-info">
+                <div class="kpi-label">Units dispensed today</div>
+                <div class="kpi-value" th:text="${report.unitsToday}">0</div>
+                <div class="kpi-hint">across all medicines</div>
+            </div>
+        </section>
+
+        <section class="card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Last 7 days</h2>
+                <span class="muted">Verification volume with dispenses underneath</span>
+            </div>
+            <div class="card-body">
+                <div class="bar-chart" role="img" aria-label="Verification volume by day">
+                    <div class="bar-chart-col" th:each="day : ${report.daily()}">
+                        <div class="bar-chart-value" th:text="${day.verifications}">0</div>
+                        <div class="bar-chart-track">
+                            <div class="bar-chart-bar" th:style="'height:' + ${day.percent()} + '%'"></div>
+                        </div>
+                        <div class="bar-chart-label" th:text="${day.day}">Day</div>
+                        <div class="bar-chart-sublabel" th:text="${day.dispenses + ' fills'}">0 fills</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Verification log</h2>
+                <span class="muted">Latest 50 attempts</span>
+            </div>
+            <div class="table-wrap" th:if="${!#lists.isEmpty(report.verifications())}">
+                <table class="data-table">
+                    <thead>
+                    <tr><th>When</th><th>Prescription ID</th><th>Patient</th><th>Pharmacist</th><th>Outcome</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${report.verifications()}">
+                        <td th:text="${row.when}">—</td>
+                        <td class="prescription-code" th:text="${row.code}">CODE</td>
+                        <td th:text="${row.patient}">Patient</td>
+                        <td th:text="${row.pharmacist}">Pharmacist</td>
+                        <td><span class="badge" th:classappend="'tone-' + ${row.tone}"
+                                  th:text="${row.outcome}">VALID</span></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="empty-state" th:if="${#lists.isEmpty(report.verifications())}">
+                <h2>No verifications yet</h2>
+                <p>Verify a prescription ID to start the audit trail.</p>
+                <a class="btn btn-primary" th:href="@{/pharmacy/verify}">Verify prescription</a>
+            </div>
+        </section>
+
+        <section class="card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Recent dispenses</h2>
+                <span class="muted">Latest 25 completed fills</span>
+            </div>
+            <div class="table-wrap" th:if="${!#lists.isEmpty(report.dispenses())}">
+                <table class="data-table">
+                    <thead>
+                    <tr><th>When</th><th>Prescription ID</th><th>Patient</th><th>Pharmacist</th><th>Units</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${report.dispenses()}">
+                        <td th:text="${row.when}">—</td>
+                        <td class="prescription-code" th:text="${row.code}">CODE</td>
+                        <td th:text="${row.patient}">Patient</td>
+                        <td th:text="${row.pharmacist}">Pharmacist</td>
+                        <td th:text="${row.units}">0</td>
+                        <td><span class="badge tone-success" th:text="${row.status}">COMPLETED</span></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="empty-state" th:if="${#lists.isEmpty(report.dispenses())}">
+                <h2>No dispenses yet</h2>
+                <p>Completed fills appear here with the pharmacist and unit count.</p>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

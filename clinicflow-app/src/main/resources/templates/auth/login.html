@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/auth}">
+<head>
+    <title>Sign in · IMS</title>
+</head>
+<body>
+<div layout:fragment="auth-content">
+    <h1 class="auth-title">Sign in</h1>
+    <p class="auth-subtitle">Access your clinic, doctor, patient or pharmacy workspace.</p>
+
+    <div class="alert alert-error" th:if="${param.clinicSuspended != null}">
+        Your clinic is suspended. Contact the platform administrator.
+    </div>
+    <div class="alert alert-error" th:if="${param.error != null}">
+        Email or password is incorrect, or the account is not active yet.
+    </div>
+    <div class="alert alert-error" th:if="${param.locked != null}">
+        Too many failed attempts. Wait a few minutes and try again.
+    </div>
+    <div class="alert alert-success" th:if="${param.verified != null}">
+        Your email is verified. Sign in to continue.
+    </div>
+    <div class="alert alert-success" th:if="${param.reset != null}">
+        Your password has been updated. Sign in with your new password.
+    </div>
+    <div class="alert alert-success" th:if="${param.logout != null}">
+        You have been signed out.
+    </div>
+    <div class="alert alert-success" th:if="${param.emailChanged != null}">
+        Your email address was verified and updated. Sign in with the new address.
+    </div>
+    <div class="alert alert-success" th:if="${param.invited != null}">
+        Your account is active. Sign in with your new password.
+    </div>
+    <div class="alert alert-success" th:if="${setupComplete}" th:text="${setupComplete}"></div>
+    <div class="alert alert-info" th:if="${setupRequired}">
+        IMS has not been set up yet.
+        <a th:href="@{/setup}">Create the platform administrator</a>.
+    </div>
+
+    <form th:action="@{/login}" method="post">
+        <div class="form-group">
+            <label class="form-label" for="email">Email address <span class="required">*</span></label>
+            <input class="form-input" id="email" name="email" type="email"
+                   autocomplete="username" required autofocus placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="password">Password <span class="required">*</span></label>
+            <input class="form-input" id="password" name="password" type="password"
+                   autocomplete="current-password" required placeholder="Your password">
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+                <input type="checkbox" name="remember-me"> Remember me
+            </label>
+            <a th:href="@{/forgot-password}" style="font-size:13px">Forgot password?</a>
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%">Sign in</button>
+    </form>
+
+    <div class="auth-footer">
+        <span>Need to verify your email?</span>
+        <a th:href="@{/verify-email}">Resend verification</a>
+    </div>
+    <div class="auth-footer">
+        <span>New patient?</span>
+        <a th:href="@{/register}">Create an account</a>
+    </div>
+</div>
+</body>
+</html>

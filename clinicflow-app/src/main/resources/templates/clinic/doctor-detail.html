@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${doctor.name} + ' · IMS'">Doctor</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${doctor.name},
+            ${(doctor.specialization ?: 'Doctor') + ' · ' + (doctor.fee == null ? 'Fee not set' : 'Fee ' + doctor.fee)},
+            'Edit doctor',
+            ${'/clinic/doctors/' + doctor.id + '/edit'},
+            ${doctor.status},
+            ${doctor.status.name() == 'ACTIVE' ? 'success' : 'neutral'})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${doctorSaved}" th:text="${doctorSaved}"></div>
+        <div class="alert alert-error" th:if="${doctorError}" th:text="${doctorError}"></div>
+
+        <div class="profile-layout">
+            <div>
+                <section class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Weekly availability</h2>
+                        <span class="muted">Slots are generated from these schedules at booking time.</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Day</th><th>Hours</th><th>Slot</th><th>Effective</th><th></th></tr></thead>
+                            <tbody>
+                            <tr th:each="schedule : ${doctor.schedules()}">
+                                <td th:text="${doctor.weekdayLabel(schedule.weekday)}">Monday</td>
+                                <td th:text="${doctor.time(schedule)}">09:00–17:00</td>
+                                <td th:text="${schedule.slotMinutes + ' min'}">15 min</td>
+                                <td>
+                                    <span th:text="${schedule.effectiveFrom == null ? 'Always' : #temporals.format(schedule.effectiveFrom, 'dd MMM yyyy')}"></span>
+                                    <span th:if="${schedule.effectiveTo != null}"
+                                          th:text="${' – ' + #temporals.format(schedule.effectiveTo, 'dd MMM yyyy')}"></span>
+                                </td>
+                                <td>
+                                    <form class="inline-form"
+                                          th:action="@{'/clinic/doctors/' + ${doctor.id} + '/schedules/' + ${schedule.scheduleId} + '/delete'}"
+                                          method="post">
+                                        <button class="btn btn-sm btn-danger" type="submit"
+                                                onclick="return confirm('Remove this availability? Existing appointments are not changed.')">
+                                            Remove
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(doctor.schedules())}">
+                                <td colspan="5" class="cell-muted">No availability yet. Patients cannot book this doctor until a schedule exists.</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="card mt-4">
+                    <div class="card-header"><h2 class="card-title">Add availability</h2></div>
+                    <div class="card-body">
+                        <form th:action="@{'/clinic/doctors/' + ${doctor.id} + '/schedules'}"
+                              th:object="${scheduleForm}" method="post">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Weekdays <span class="required">*</span></label>
+                                    <div class="weekday-options">
+                                        <label class="checkbox-option" th:each="day : ${weekdays}">
+                                            <input type="checkbox" th:field="*{weekdays}" th:value="${day.value}">
+                                            <span th:text="${day.label}">Monday</span>
+                                        </label>
+                                    </div>
+                                    <div class="form-error" th:if="${#fields.hasErrors('weekdays')}" th:errors="*{weekdays}"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="startTime">Start <span class="required">*</span></label>
+                                    <input class="form-input" id="startTime" type="time" th:field="*{startTime}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="endTime">End <span class="required">*</span></label>
+                                    <input class="form-input" id="endTime" type="time" th:field="*{endTime}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="slotMinutes">Slot length (minutes)</label>
+                                    <input class="form-input" id="slotMinutes" type="number" min="5" max="120"
+                                           th:field="*{slotMinutes}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="effectiveFrom">Effective from</label>
+                                    <input class="form-input" id="effectiveFrom" type="date" th:field="*{effectiveFrom}">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="effectiveTo">Effective to</label>
+                                    <input class="form-input" id="effectiveTo" type="date" th:field="*{effectiveTo}">
+                                </div>
+                            </div>
+                            <div class="form-actions" style="justify-content:flex-start">
+                                <button class="btn btn-primary" type="submit">Add schedule</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Workspace account</h2></div>
+                    <div class="card-body stack-4">
+                        <div th:if="${doctor.accountEmail == null}" class="muted">
+                            This doctor has no login. Add one by editing the doctor and entering an email.
+                        </div>
+                        <div th:if="${doctor.accountEmail != null}">
+                            <div class="cell-primary" th:text="${doctor.accountEmail}">doctor@example.com</div>
+                            <div class="mt-4">
+                                <span class="badge"
+                                      th:classappend="${doctor.accountStatus.name() == 'ACTIVE' ? 'tone-success' : 'tone-warning'}"
+                                      th:text="${doctor.accountStatus}">PENDING</span>
+                            </div>
+                        </div>
+                        <form th:if="${doctor.accountStatus != null and doctor.accountStatus.name() == 'PENDING'}"
+                              th:action="@{'/clinic/doctors/' + ${doctor.id} + '/invite/resend'}" method="post">
+                            <button class="btn btn-secondary" type="submit">Resend invitation</button>
+                        </form>
+                        <a class="btn btn-ghost" th:href="@{/clinic/doctors}">Back to doctors</a>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,19 @@
+cases:
+  - id: basic-01
+    scenario: "Detail route"
+    input: "Add /clinic/doctors/:id/schedule page."
+    expected_behavior: "Adds route metadata, crumb `Doctors > Dr. Name > Schedule`, sidebar keeps Doctors active."
+    prohibited_behavior: "Adding a sidebar item for the sub-page."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Wrong role"
+    input: "Patient opens /pharmacy/verify."
+    expected_behavior: "Server and client block; redirect to patient dashboard with notice."
+    prohibited_behavior: "Showing the page or blank screen."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-03
+    scenario: "Mobile"
+    input: "View at 360px."
+    expected_behavior: "Sidebar becomes drawer; breadcrumbs collapse to Back + current page."
+    prohibited_behavior: "Horizontal scroll."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

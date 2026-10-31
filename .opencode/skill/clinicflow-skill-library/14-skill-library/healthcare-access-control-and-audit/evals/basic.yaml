@@ -1,0 +1,13 @@
+cases:
+  - id: basic-01
+    scenario: "Ownership"
+    input: "Add GET prescription by id."
+    expected_behavior: "Service checks prescription.patient_id == session patient for patients; clinic scope for clinics."
+    prohibited_behavior: "Trusting patient_id from query string."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Error text"
+    input: "Return 'prescription belongs to another patient'."
+    expected_behavior: "Replaces with generic 404."
+    prohibited_behavior: "Leaking existence."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

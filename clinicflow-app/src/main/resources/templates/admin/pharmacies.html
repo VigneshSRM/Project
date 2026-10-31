@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Pharmacy Enrollment · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Pharmacy Enrollment',
+            'Enroll dispensing pharmacies and invite their administrator.',
+            'Enroll pharmacy',
+            '/admin/pharmacies/new',
+            ${#lists.size(pharmacies) + ' pharmacies'},
+            'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${pharmacyCreated}" th:text="${pharmacyCreated}"></div>
+        <div class="alert alert-error" th:if="${pharmacyError}" th:text="${pharmacyError}"></div>
+
+        <section class="card">
+            <div class="card-header"><h2 class="card-title">Enrolled pharmacies</h2></div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>Pharmacy</th>
+                        <th>Licence</th>
+                        <th>Location</th>
+                        <th>Administrator</th>
+                        <th>Users</th>
+                        <th>Status</th>
+                        <th>Enrolled</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${pharmacies}">
+                        <td><a class="cell-primary" th:href="@{'/admin/pharmacies/' + ${row.id}}"
+                               th:text="${row.name}">Pharmacy</a></td>
+                        <td th:text="${row.licenceNumber}">LIC-1</td>
+                        <td><span th:text="${row.city}">City</span>, <span th:text="${row.state}">State</span></td>
+                        <td>
+                            <div th:text="${row.adminEmail}">admin@example.com</div>
+                            <div class="cell-muted" th:text="${row.adminStatus}">PENDING</div>
+                        </td>
+                        <td th:text="${row.users}">0</td>
+                        <td><span class="badge" th:classappend="'tone-' + ${row.statusTone}"
+                                  th:text="${row.statusLabel}">ACTIVE</span></td>
+                        <td th:text="${row.enrolledOn}">01 Jan 2026</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(pharmacies)}">
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <h2>No pharmacies yet</h2>
+                                <p>Enroll a pharmacy so it can verify and dispense prescriptions.</p>
+                                <a class="btn btn-primary" th:href="@{/admin/pharmacies/new}">Enroll pharmacy</a>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

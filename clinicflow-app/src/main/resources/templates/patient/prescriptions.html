@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>My Prescriptions · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'My Prescriptions',
+            'Prescriptions issued to you, with live dispensing progress.',
+            null, null, ${#lists.size(prescriptions) + ' records'}, 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-error" th:if="${prescriptionError}" th:text="${prescriptionError}"></div>
+
+        <section class="card">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr><th>Prescription ID</th><th>Doctor</th><th>Issued</th><th>Expires</th><th>Fulfilment</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${prescriptions}">
+                        <td><a class="cell-primary prescription-code"
+                               th:href="@{'/patient/prescriptions/' + ${row.id}}"
+                               th:text="${row.code}">CODE</a></td>
+                        <td th:text="${row.doctor}">Doctor</td>
+                        <td th:text="${row.issued}">—</td>
+                        <td th:text="${row.expires}">—</td>
+                        <td><span class="badge" th:classappend="'tone-' + ${row.fulfilmentTone}"
+                                  th:text="${row.fulfilment}">Not dispensed</span></td>
+                        <td><span class="badge"
+                                  th:classappend="${row.watermark == 'CANCELLED' ? 'tone-danger' : (row.watermark == 'EXPIRED' ? 'tone-warning' : 'tone-success')}"
+                                  th:text="${row.watermark == null ? 'VALID' : row.watermark}">VALID</span></td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(prescriptions)}">
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <h2>No prescriptions</h2>
+                                <p>A doctor issues a prescription from a consultation. It appears here immediately.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

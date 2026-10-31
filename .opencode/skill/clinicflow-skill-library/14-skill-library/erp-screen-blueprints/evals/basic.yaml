@@ -1,0 +1,19 @@
+cases:
+  - id: basic-01
+    scenario: "List screen"
+    input: "Build My Prescriptions."
+    expected_behavior: "List pattern: columns per source, status badges, expiry highlight, View action, empty state, breadcrumb."
+    prohibited_behavior: "Custom layout without states."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Dashboard"
+    input: "Build patient dashboard."
+    expected_behavior: "7 widgets from source grouped into 4 KPI + upcoming + recent lists; quick actions; links to filtered lists."
+    prohibited_behavior: "Dozens of unlinked widgets."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-03
+    scenario: "Wizard"
+    input: "Build appointment booking."
+    expected_behavior: "5-step stepper with confirm summary and slot recheck error handling."
+    prohibited_behavior: "Single long form."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

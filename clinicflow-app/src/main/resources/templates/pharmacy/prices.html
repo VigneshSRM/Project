@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Medicine Price List · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Medicine Price List',
+            'Set the unit price used by the POS. Prices are remembered and re-used on every sale.',
+            null, null, 'POS pricing', 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${priceSaved}" th:text="${priceSaved}"></div>
+        <div class="alert alert-error" th:if="${priceError}" th:text="${priceError}"></div>
+
+        <div class="pos-price-layout">
+            <section class="card">
+                <div class="card-header"><h2 class="card-title">Add a price</h2></div>
+                <div class="card-body">
+                    <form th:action="@{/pharmacy/prices}" method="post" data-guard class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="medicine">Medicine</label>
+                            <input class="form-input" id="medicine" name="medicine" maxlength="200" required
+                                   placeholder="e.g. Albendazole">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="unitPrice">Unit price</label>
+                            <div class="pos-price-wrap">
+                                <span class="pos-currency">₹</span>
+                                <input class="form-input" id="unitPrice" name="unitPrice" type="number"
+                                       min="0" step="0.01" required>
+                            </div>
+                        </div>
+                        <div class="form-actions" style="grid-column:1 / -1">
+                            <button class="btn btn-primary" type="submit" data-submit-guard>Save price</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-body pos-price-note">
+                    <div class="pos-price-note-mark" aria-hidden="true">₹</div>
+                    <div>
+                        <h3>Automatic income posting</h3>
+                        <p class="muted">
+                            When a POS sale is completed, IMS multiplies quantity by the saved unit price,
+                            adds tax, subtracts any discount and posts the total to Finance as income.
+                            No manual amount entry is needed.
+                        </p>
+                        <a class="btn btn-ghost btn-sm" th:href="@{/pharmacy/pos}">Open POS</a>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <section class="card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Price list</h2>
+                <span class="badge tone-neutral" th:text="${#lists.size(prices)} + ' medicines'">0 medicines</span>
+            </div>
+            <div class="card-body">
+                <div class="table-wrap" th:if="${!#lists.isEmpty(prices)}">
+                    <table class="data-table">
+                        <thead>
+                        <tr><th>Medicine</th><th class="num">Unit price</th><th>Updated</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="price : ${prices}">
+                            <td class="cell-primary" th:text="${price.medicine}">Medicine</td>
+                            <td class="num">
+                                <form th:action="@{/pharmacy/prices}" method="post" class="pos-inline-price">
+                                    <input type="hidden" name="priceId" th:value="${price.priceId}">
+                                    <input type="hidden" name="medicine" th:value="${price.medicine}">
+                                    <div class="pos-price-wrap">
+                                        <span class="pos-currency">₹</span>
+                                        <input class="form-input" name="unitPrice" type="number" min="0"
+                                               step="0.01" th:value="${price.unitPrice}" required>
+                                    </div>
+                                    <button class="btn btn-secondary btn-sm" type="submit">Save</button>
+                                </form>
+                            </td>
+                            <td class="cell-muted" th:text="${price.updated}">—</td>
+                            <td>
+                                <form th:action="@{'/pharmacy/prices/' + ${price.priceId} + '/delete'}"
+                                      method="post" onsubmit="return confirm('Delete this price?');">
+                                    <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty-state" th:if="${#lists.isEmpty(prices)}">
+                    <h2>No prices yet</h2>
+                    <p>Add a medicine price above, or complete a POS sale to remember the price automatically.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

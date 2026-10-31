@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Platform Reports · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Platform Reports',
+            'Live operational totals across clinics, pharmacies, appointments and email delivery.',
+            null, null, 'Live data', 'info')}"></div>
+
+    <div class="content-body">
+        <section class="kpi-grid" aria-label="Platform metrics">
+            <div class="kpi-card tone-info" th:each="metric : ${report.metrics()}">
+                <div class="kpi-label" th:text="${metric.label}">Metric</div>
+                <div class="kpi-value" th:text="${metric.value}">0</div>
+                <div class="kpi-hint">
+                    <span th:text="${metric.hint}">Hint</span>
+                    <strong th:text="${metric.secondary}">0</strong>
+                </div>
+            </div>
+        </section>
+
+        <div class="report-grid mt-4">
+            <section class="card">
+                <div class="card-header"><h2 class="card-title">Appointments by status</h2></div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>Status</th><th>Count</th></tr></thead>
+                        <tbody>
+                        <tr th:each="row : ${report.appointmentStatuses()}">
+                            <td><span class="badge tone-neutral" th:text="${row.label}">BOOKED</span></td>
+                            <td th:text="${row.count}">0</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-header"><h2 class="card-title">Email delivery</h2></div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>Status</th><th>Count</th></tr></thead>
+                        <tbody>
+                        <tr th:each="row : ${report.emails()}">
+                            <td><span class="badge tone-neutral" th:text="${row.label}">SENT</span></td>
+                            <td th:text="${row.count}">0</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-header"><h2 class="card-title">Patient linking</h2></div>
+                <div class="card-body">
+                    <dl class="detail-list">
+                        <div><dt>Pending clinic verification</dt><dd th:text="${report.pendingLinks}">0</dd></div>
+                        <div><dt>Approved links</dt><dd th:text="${report.approvedLinks}">0</dd></div>
+                        <div><dt>Rejected requests</dt><dd th:text="${report.rejectedLinks}">0</dd></div>
+                    </dl>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+</body>
+</html>

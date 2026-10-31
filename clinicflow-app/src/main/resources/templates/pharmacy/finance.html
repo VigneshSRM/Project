@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${pageTitle} + ' · IMS'">Finance</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Finance',
+            'POS sales post income automatically. Add expenses and adjustments here.',
+            null, null, 'Income &amp; expenses', 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${financeSaved}" th:text="${financeSaved}"></div>
+        <div class="alert alert-error" th:if="${financeError}" th:text="${financeError}"></div>
+
+        <div class="pos-finance-kpis">
+            <div class="pos-finance-kpi">
+                <span>Income today</span>
+                <strong th:text="${'₹' + (incomeToday ?: 0)}">₹0.00</strong>
+                <small>POS sales + manual income</small>
+            </div>
+            <div class="pos-finance-kpi">
+                <span>Expenses today</span>
+                <strong th:text="${'₹' + (expenseToday ?: 0)}">₹0.00</strong>
+                <small>Manual expense entries</small>
+            </div>
+            <div class="pos-finance-kpi tone-success">
+                <span>Net (30 days)</span>
+                <strong th:text="${net != null and net.signum() < 0 ? '-₹' + net.abs() : '₹' + (net ?: 0)}">₹0.00</strong>
+                <small>Income minus expenses</small>
+            </div>
+            <div class="pos-finance-kpi tone-neutral">
+                <span>30-day income</span>
+                <strong th:text="${'₹' + (income ?: 0)}">₹0.00</strong>
+                <small>All posted income</small>
+            </div>
+            <div class="pos-finance-kpi tone-warning">
+                <span>30-day expenses</span>
+                <strong th:text="${'₹' + (expense ?: 0)}">₹0.00</strong>
+                <small>All recorded expenses</small>
+            </div>
+        </div>
+
+        <div class="pos-finance-layout">
+            <section class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Add manual entry</h2>
+                    <a class="btn btn-ghost btn-sm" th:href="@{/pharmacy/pos}">Open POS</a>
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/pharmacy/finance}" method="post" data-guard class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="entryType">Type</label>
+                            <select class="form-select" id="entryType" name="entryType" required>
+                                <option value="INCOME">Income</option>
+                                <option value="EXPENSE">Expense</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="amount">Amount</label>
+                            <div class="pos-price-wrap">
+                                <span class="pos-currency">₹</span>
+                                <input class="form-input" id="amount" name="amount" type="number"
+                                       step="0.01" min="0.01" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="entryDate">Date</label>
+                            <input class="form-input" id="entryDate" name="entryDate" type="date">
+                        </div>
+                        <div class="form-group" style="grid-column:1 / -1">
+                            <label class="form-label" for="description">Description</label>
+                            <input class="form-input" id="description" name="description" maxlength="500"
+                                   placeholder="e.g. electricity bill, rent, supplier payment">
+                        </div>
+                        <div class="form-actions" style="grid-column:1 / -1">
+                            <button class="btn btn-primary" type="submit" data-submit-guard>Add entry</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-body pos-finance-note">
+                    <h3>Automatic POS income</h3>
+                    <p class="muted">
+                        Every completed POS sale creates an income entry with the receipt number, payment
+                        method and sale total. The entry is linked to the dispense record so you can open
+                        the receipt from the ledger.
+                    </p>
+                    <a class="btn btn-ghost btn-sm" th:href="@{/pharmacy/prices}">Manage price list</a>
+                </div>
+            </section>
+        </div>
+
+        <section class="card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Finance ledger</h2>
+                <span class="badge tone-neutral" th:text="${#lists.size(entries)} + ' entries'">0 entries</span>
+            </div>
+            <div class="card-body">
+                <div class="table-wrap" th:if="${!#lists.isEmpty(entries)}">
+                    <table class="data-table">
+                        <thead>
+                        <tr><th>Date</th><th>Type</th><th>Amount</th><th>Description</th><th>Source</th></tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="entry : ${entries}">
+                            <td th:text="${entry.entryDate}">2026-10-29</td>
+                            <td>
+                                <span class="badge"
+                                      th:classappend="${entry.entryType == 'INCOME' ? 'tone-success' : 'tone-warning'}"
+                                      th:text="${entry.entryType}">INCOME</span>
+                            </td>
+                            <td class="num" th:text="${'₹' + entry.amount}">₹0.00</td>
+                            <td th:text="${entry.description ?: '—'}">—</td>
+                            <td>
+                                <a th:if="${entry.dispenseId != null}"
+                                   th:href="@{'/pharmacy/dispenses/' + ${entry.dispenseId}}"
+                                   class="badge tone-info">POS sale</a>
+                                <span th:if="${entry.dispenseId == null}" class="cell-muted">Manual</span>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty-state" th:if="${#lists.isEmpty(entries)}">
+                    <h2>No finance entries yet</h2>
+                    <p>Complete a POS sale or add an expense above.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

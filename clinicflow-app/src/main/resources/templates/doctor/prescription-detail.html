@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Prescription · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Prescription',
+            ${prescription.patientName + ' · issued ' + prescription.issued},
+            null, null, ${prescription.watermark == null ? 'VALID' : prescription.watermark},
+            ${prescription.watermark == 'CANCELLED' ? 'danger' : (prescription.watermark == 'EXPIRED' ? 'warning' : 'success')})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${prescriptionSaved}" th:text="${prescriptionSaved}"></div>
+        <div class="alert alert-error" th:if="${prescriptionError}" th:text="${prescriptionError}"></div>
+
+        <div class="card" th:classappend="${prescription.watermark != null} ? ' watermark' : ''"
+             th:attr="data-watermark=${prescription.watermark}">
+            <div class="card-body">
+                <div class="kpi-label">Prescription ID</div>
+                <div class="prescription-code" style="font-size:22px;letter-spacing:2px"
+                     th:text="${prescription.code}">CODE</div>
+                <div class="form-help">Case-sensitive. The pharmacy must enter this ID exactly.</div>
+            </div>
+        </div>
+
+        <div class="profile-layout mt-4">
+            <div>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Prescription summary</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Patient</dt><dd>
+                                <span th:text="${prescription.patientName}">Patient</span>
+                                <div class="cell-muted" th:text="${prescription.patientPublicId + ' · DOB ' + prescription.patientDob}">PAT</div>
+                            </dd></div>
+                            <div><dt>Clinic</dt><dd th:text="${prescription.clinicName + ' · ' + prescription.clinicCity}">Clinic</dd></div>
+                            <div><dt>Doctor</dt><dd th:text="${prescription.doctorName + (prescription.doctorSpecialization == null ? '' : ' · ' + prescription.doctorSpecialization)}">Doctor</dd></div>
+                            <div><dt>Issued</dt><dd th:text="${prescription.issued}">—</dd></div>
+                            <div><dt>Expires</dt><dd th:text="${prescription.expires}">—</dd></div>
+                            <div><dt>Fulfilment</dt><dd>
+                                <span class="badge" th:classappend="'tone-' + ${prescription.fulfilmentTone}"
+                                      th:text="${prescription.fulfilment}">Not dispensed</span>
+                            </dd></div>
+                            <div th:if="${prescription.cancelReason != null}"><dt>Cancellation</dt><dd>
+                                <span th:text="${prescription.cancelReason}">—</span>
+                                <div class="cell-muted" th:text="${prescription.cancelledAt}">—</div>
+                            </dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4">
+                    <div class="card-header"><h2 class="card-title">Medicines</h2></div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                            <tr><th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration</th><th>Qty</th><th>Dispensed</th><th>Remaining</th><th>Lifetime</th></tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="item : ${prescription.items()}">
+                                <td>
+                                    <div class="cell-primary" th:text="${item.medicine}">Medicine</div>
+                                    <div class="cell-muted" th:text="${item.instructions ?: ''}">Instructions</div>
+                                </td>
+                                <td th:text="${item.dosage ?: '—'}">—</td>
+                                <td th:text="${item.frequency ?: '—'}">—</td>
+                                <td th:text="${item.duration ?: '—'}">—</td>
+                                <td th:text="${item.quantity + ' ' + (item.unit ?: '')}">—</td>
+                                <td th:text="${item.dispensed}">0</td>
+                                <td>
+                                    <span class="badge" th:classappend="${item.remaining == 0 ? 'tone-success' : 'tone-neutral'}"
+                                          th:text="${item.remaining}">0</span>
+                                </td>
+                                <td th:text="${item.lifetime} ? 'Yes' : 'No'">No</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="card mt-4">
+                    <div class="card-header"><h2 class="card-title">Dispense history</h2></div>
+                    <div class="table-wrap" th:if="${!#lists.isEmpty(prescription.dispenses())}">
+                        <table class="data-table">
+                            <thead><tr><th>When</th><th>Pharmacy</th><th>Pharmacist</th><th>Items</th><th>Status</th></tr></thead>
+                            <tbody>
+                            <tr th:each="dispense : ${prescription.dispenses()}">
+                                <td th:text="${dispense.when}">—</td>
+                                <td th:text="${dispense.pharmacy}">Pharmacy</td>
+                                <td th:text="${dispense.pharmacist}">—</td>
+                                <td>
+                                    <div th:each="line : ${dispense.items()}"
+                                         th:text="${line.medicine + ' × ' + line.quantity}">Medicine × 1</div>
+                                </td>
+                                <td><span class="badge tone-success" th:text="${dispense.status}">COMPLETED</span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="empty-state" th:if="${#lists.isEmpty(prescription.dispenses())}">
+                        <h2>Not dispensed yet</h2>
+                        <p>The pharmacy records each full or partial fill here.</p>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Actions</h2></div>
+                    <div class="card-body stack-4">
+                        <form th:action="@{'/doctor/prescriptions/' + ${prescription.id} + '/email'}" method="post">
+                            <button class="btn btn-secondary" type="submit">Email the patient again</button>
+                        </form>
+                        <div th:if="${prescription.watermark == null or prescription.watermark == 'EXPIRED'}">
+                            <details class="reject-panel" th:if="${prescription.watermark == null}">
+                                <summary>Cancel prescription</summary>
+                                <form class="mt-4" th:action="@{'/doctor/prescriptions/' + ${prescription.id} + '/cancel'}"
+                                      method="post">
+                                    <div class="form-group">
+                                        <label class="form-label" for="reason">Cancellation reason</label>
+                                        <textarea class="form-input" id="reason" name="reason" maxlength="300"></textarea>
+                                        <div class="form-help">A cancelled prescription cannot be dispensed.</div>
+                                    </div>
+                                    <button class="btn btn-danger" type="submit"
+                                            onclick="return confirm('Cancel this prescription? This cannot be undone.')">
+                                        Cancel prescription
+                                    </button>
+                                </form>
+                            </details>
+                        </div>
+                        <a class="btn btn-ghost" th:href="@{/doctor/prescriptions}">Back to prescriptions</a>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

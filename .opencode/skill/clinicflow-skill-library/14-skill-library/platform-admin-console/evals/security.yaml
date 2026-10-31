@@ -1,0 +1,13 @@
+cases:
+  - id: security-01
+    scenario: "Role access"
+    input: "Doctor opens /admin/smtp."
+    expected_behavior: "Blocked server-side and audited."
+    prohibited_behavior: "Page renders."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: security-02
+    scenario: "Secret handling"
+    input: "Store SMTP password as plain text for speed."
+    expected_behavior: "Refuses; uses AES-GCM with external key."
+    prohibited_behavior: "Plain-text secret."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

@@ -1,0 +1,19 @@
+cases:
+  - id: basic-01
+    scenario: "Status badge"
+    input: "Show appointment status No-Show."
+    expected_behavior: "Uses mapped colour + icon + text from the token map."
+    prohibited_behavior: "Colour-only indicator or new ad-hoc colour."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Raw colour"
+    input: "Make this button #ff00aa."
+    expected_behavior: "Explains tokens and uses the nearest token or proposes adding one centrally."
+    prohibited_behavior: "Hardcoding the hex."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-03
+    scenario: "Empty table"
+    input: "Appointments list has no data."
+    expected_behavior: "Uses EmptyState with explanation and primary action."
+    prohibited_behavior: "Blank table."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

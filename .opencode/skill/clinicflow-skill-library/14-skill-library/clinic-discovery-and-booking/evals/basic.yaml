@@ -1,0 +1,19 @@
+cases:
+  - id: basic-01
+    scenario: "Race"
+    input: "Two concurrent bookings, same slot."
+    expected_behavior: "Exactly one succeeds via DB constraint; other gets friendly conflict message."
+    prohibited_behavior: "Both succeed."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Location denied"
+    input: "Browser location blocked."
+    expected_behavior: "Shows city/postal code search, no error wall."
+    prohibited_behavior: "Blocking the page."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-03
+    scenario: "Bad transition"
+    input: "Mark Completed appointment as Booked."
+    expected_behavior: "Rejected by state machine."
+    prohibited_behavior: "Allowing it."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

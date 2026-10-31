@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/auth}">
+<head>
+    <title>Email change · IMS</title>
+</head>
+<body>
+<div layout:fragment="auth-content">
+    <h1 class="auth-title">Email change</h1>
+
+    <div th:if="${changedEmail != null}">
+        <div class="alert alert-success">
+            Your login email is now
+            <strong th:text="${changedEmail}">new@example.com</strong>.
+            Sign in again with the new address.
+        </div>
+        <a class="btn btn-primary" th:href="@{/login(emailChanged=true)}" style="width:100%">
+            Go to sign in
+        </a>
+    </div>
+
+    <div th:if="${verificationError != null}">
+        <div class="alert alert-error" th:text="${verificationError}">
+            This link is invalid or expired.
+        </div>
+        <p class="auth-subtitle">
+            Email-change links are single-use and expire after 24 hours. Sign in, open My Profile and request
+            the change again.
+        </p>
+        <a class="btn btn-secondary" th:href="@{/login}" style="width:100%">Back to sign in</a>
+    </div>
+</div>
+</body>
+</html>

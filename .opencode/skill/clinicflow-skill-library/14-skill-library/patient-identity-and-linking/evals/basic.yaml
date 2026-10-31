@@ -1,0 +1,13 @@
+cases:
+  - id: basic-01
+    scenario: "Registration"
+    input: "Register patient with all required fields."
+    expected_behavior: "Creates pending account, sends verification, no login until verified."
+    prohibited_behavior: "Immediate login."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Reset"
+    input: "Forgot password for unknown email."
+    expected_behavior: "Same generic response as known email."
+    prohibited_behavior: "'Email not found'."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

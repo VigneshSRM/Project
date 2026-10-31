@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Sale Receipt · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${dispense.hasSale() ? 'Sale receipt' : 'Dispense recorded'},
+            ${dispense.pharmacy + ' · ' + dispense.when},
+            null, null,
+            ${dispense.hasSale() ? dispense.saleNumber() : (dispense.fullyDispensed ? 'FULLY DISPENSED' : 'PARTIALLY DISPENSED')},
+            ${dispense.fullyDispensed ? 'success' : 'warning'})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success">
+            <span th:if="${dispense.hasSale()}">Payment received and income posted to Finance automatically.</span>
+            <span th:unless="${dispense.hasSale()}">This fill has been recorded. The patient’s remaining quantities now reflect the dispense.</span>
+        </div>
+
+        <div class="profile-layout">
+            <div>
+                <section class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Receipt</h2>
+                        <span class="pos-receipt-label" th:text="${dispense.saleNumber()}">SALE-000001</span>
+                    </div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Prescription ID</dt><dd>
+                                <span class="prescription-code" th:text="${dispense.code}">CODE</span>
+                            </dd></div>
+                            <div><dt>Patient</dt><dd th:text="${dispense.patient}">Patient</dd></div>
+                            <div><dt>Pharmacy</dt><dd th:text="${dispense.pharmacy}">Pharmacy</dd></div>
+                            <div><dt>Dispensed</dt><dd th:text="${dispense.when}">—</dd></div>
+                            <div><dt>Units dispensed</dt><dd th:text="${dispense.units}">0</dd></div>
+                            <div th:if="${dispense.hasSale()}"><dt>Payment</dt><dd>
+                                <span class="badge tone-neutral" th:text="${dispense.paymentMethod}">CASH</span>
+                            </dd></div>
+                            <div><dt>Fulfilment</dt><dd>
+                                <span class="badge"
+                                      th:classappend="${dispense.fullyDispensed ? 'tone-success' : 'tone-warning'}"
+                                      th:text="${dispense.fullyDispensed ? 'Fully dispensed' : 'Partially dispensed'}">
+                                    Partially dispensed
+                                </span>
+                            </dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4">
+                    <div class="card-header"><h2 class="card-title">Items dispensed</h2></div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                            <tr><th>Medicine</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Line total</th></tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="line : ${dispense.lines()}">
+                                <td th:text="${line.medicine}">Medicine</td>
+                                <td class="num" th:text="${line.quantity}">0</td>
+                                <td class="num" th:text="${'₹' + (line.unitPrice ?: 0)}">₹0.00</td>
+                                <td class="num" th:text="${'₹' + (line.lineTotal ?: 0)}">₹0.00</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card" th:if="${dispense.hasSale()}">
+                    <div class="card-header"><h2 class="card-title">Sale summary</h2></div>
+                    <div class="card-body">
+                        <div class="pos-totals pos-receipt-totals">
+                            <div class="pos-total-row"><span>Subtotal</span><strong th:text="${'₹' + dispense.subtotal}">₹0.00</strong></div>
+                            <div class="pos-total-row"><span>Discount</span><strong th:text="${'−₹' + dispense.discount}">−₹0.00</strong></div>
+                            <div class="pos-total-row"><span th:text="${'Tax (' + dispense.taxRate + '%)'}">Tax</span><strong th:text="${'₹' + dispense.taxAmount}">₹0.00</strong></div>
+                            <div class="pos-total-row pos-grand-total"><span>Total</span><strong th:text="${'₹' + dispense.total}">₹0.00</strong></div>
+                            <div class="pos-total-row" th:if="${dispense.amountTendered != null}">
+                                <span>Tendered</span><strong th:text="${'₹' + dispense.amountTendered}">₹0.00</strong>
+                            </div>
+                            <div class="pos-total-row" th:if="${dispense.changeDue != null}">
+                                <span>Change</span><strong th:text="${'₹' + dispense.changeDue}">₹0.00</strong>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card" th:classappend="${dispense.hasSale()} ? 'mt-4' : ''">
+                    <div class="card-header"><h2 class="card-title">Next steps</h2></div>
+                    <div class="card-body stack-4">
+                        <div th:if="${!dispense.fullyDispensed}" class="alert alert-info" style="margin:0">
+                            The patient still has remaining quantities. Verify the prescription ID again for
+                            the next partial fill.
+                        </div>
+                        <div th:if="${dispense.fullyDispensed}" class="alert alert-success" style="margin:0">
+                            The prescription is now fully dispensed. Further dispensing is blocked.
+                        </div>
+                        <a class="btn btn-primary" th:href="@{/pharmacy/pos}">New POS sale</a>
+                        <a class="btn btn-ghost" th:href="@{/pharmacy/finance}">Open finance</a>
+                        <a class="btn btn-ghost" th:href="@{/pharmacy/reports}">Open reports</a>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

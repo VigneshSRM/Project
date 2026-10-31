@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${pageTitle} + ' · IMS'">Edit inventory item</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Edit inventory item',
+            'Update this clinic medicine and its default prescription values.',
+            'Back to inventory', @{'/clinic/inventory'}, 'Editing', 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-error" th:if="${inventoryError}" th:text="${inventoryError}"></div>
+
+        <section class="card">
+            <div class="card-header"><h2 class="card-title">Inventory item</h2></div>
+            <div class="card-body">
+                <form th:action="@{'/clinic/inventory/' + ${medicine.clinicMedicineId} + '/edit'}" method="post" data-guard class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="medicine">Medicine <span class="required">*</span></label>
+                        <input class="form-input" id="medicine" name="medicine" required maxlength="200"
+                               th:value="${medicine.medicine}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="dosage">Dosage</label>
+                        <input class="form-input" id="dosage" name="dosage" maxlength="100"
+                               th:value="${medicine.dosage}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="defaultFrequency">Default frequency</label>
+                        <select class="form-select" id="defaultFrequency" name="defaultFrequency">
+                            <option value="">Select frequency</option>
+                            <option value="Once a day" th:selected="${medicine.defaultFrequency == 'Once a day'}">Once a day</option>
+                            <option value="Twice a day" th:selected="${medicine.defaultFrequency == 'Twice a day'}">Twice a day</option>
+                            <option value="Three times a day" th:selected="${medicine.defaultFrequency == 'Three times a day'}">Three times a day</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="defaultDuration">Default duration</label>
+                        <select class="form-select" id="defaultDuration" name="defaultDuration">
+                            <option value="">Select duration</option>
+                            <optgroup label="Days">
+                                <option value="1 day" th:selected="${medicine.defaultDuration == '1 day'}">1 day</option>
+                                <option value="2 days" th:selected="${medicine.defaultDuration == '2 days'}">2 days</option>
+                                <option value="3 days" th:selected="${medicine.defaultDuration == '3 days'}">3 days</option>
+                                <option value="4 days" th:selected="${medicine.defaultDuration == '4 days'}">4 days</option>
+                                <option value="5 days" th:selected="${medicine.defaultDuration == '5 days'}">5 days</option>
+                                <option value="6 days" th:selected="${medicine.defaultDuration == '6 days'}">6 days</option>
+                                <option value="7 days" th:selected="${medicine.defaultDuration == '7 days'}">7 days</option>
+                                <option value="8 days" th:selected="${medicine.defaultDuration == '8 days'}">8 days</option>
+                                <option value="9 days" th:selected="${medicine.defaultDuration == '9 days'}">9 days</option>
+                                <option value="10 days" th:selected="${medicine.defaultDuration == '10 days'}">10 days</option>
+                                <option value="11 days" th:selected="${medicine.defaultDuration == '11 days'}">11 days</option>
+                                <option value="12 days" th:selected="${medicine.defaultDuration == '12 days'}">12 days</option>
+                                <option value="13 days" th:selected="${medicine.defaultDuration == '13 days'}">13 days</option>
+                                <option value="14 days" th:selected="${medicine.defaultDuration == '14 days'}">14 days</option>
+                                <option value="15 days" th:selected="${medicine.defaultDuration == '15 days'}">15 days</option>
+                                <option value="16 days" th:selected="${medicine.defaultDuration == '16 days'}">16 days</option>
+                                <option value="17 days" th:selected="${medicine.defaultDuration == '17 days'}">17 days</option>
+                                <option value="18 days" th:selected="${medicine.defaultDuration == '18 days'}">18 days</option>
+                                <option value="19 days" th:selected="${medicine.defaultDuration == '19 days'}">19 days</option>
+                                <option value="20 days" th:selected="${medicine.defaultDuration == '20 days'}">20 days</option>
+                                <option value="21 days" th:selected="${medicine.defaultDuration == '21 days'}">21 days</option>
+                                <option value="22 days" th:selected="${medicine.defaultDuration == '22 days'}">22 days</option>
+                                <option value="23 days" th:selected="${medicine.defaultDuration == '23 days'}">23 days</option>
+                                <option value="24 days" th:selected="${medicine.defaultDuration == '24 days'}">24 days</option>
+                                <option value="25 days" th:selected="${medicine.defaultDuration == '25 days'}">25 days</option>
+                                <option value="26 days" th:selected="${medicine.defaultDuration == '26 days'}">26 days</option>
+                                <option value="27 days" th:selected="${medicine.defaultDuration == '27 days'}">27 days</option>
+                                <option value="28 days" th:selected="${medicine.defaultDuration == '28 days'}">28 days</option>
+                                <option value="29 days" th:selected="${medicine.defaultDuration == '29 days'}">29 days</option>
+                                <option value="30 days" th:selected="${medicine.defaultDuration == '30 days'}">30 days</option>
+                            </optgroup>
+                            <optgroup label="Months">
+                                <option value="1 month" th:selected="${medicine.defaultDuration == '1 month'}">1 month</option>
+                                <option value="2 months" th:selected="${medicine.defaultDuration == '2 months'}">2 months</option>
+                                <option value="3 months" th:selected="${medicine.defaultDuration == '3 months'}">3 months</option>
+                                <option value="4 months" th:selected="${medicine.defaultDuration == '4 months'}">4 months</option>
+                                <option value="5 months" th:selected="${medicine.defaultDuration == '5 months'}">5 months</option>
+                                <option value="6 months" th:selected="${medicine.defaultDuration == '6 months'}">6 months</option>
+                                <option value="7 months" th:selected="${medicine.defaultDuration == '7 months'}">7 months</option>
+                                <option value="8 months" th:selected="${medicine.defaultDuration == '8 months'}">8 months</option>
+                                <option value="9 months" th:selected="${medicine.defaultDuration == '9 months'}">9 months</option>
+                                <option value="10 months" th:selected="${medicine.defaultDuration == '10 months'}">10 months</option>
+                                <option value="11 months" th:selected="${medicine.defaultDuration == '11 months'}">11 months</option>
+                                <option value="12 months" th:selected="${medicine.defaultDuration == '12 months'}">12 months</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="defaultQuantity">Default quantity</label>
+                        <input class="form-input" id="defaultQuantity" name="defaultQuantity" type="number" min="0"
+                               th:value="${medicine.defaultQuantity}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="defaultForm">Form</label>
+                        <select class="form-select" id="defaultForm" name="defaultForm">
+                            <option value="">Select unit</option>
+                            <option value="Tablet" th:selected="${medicine.defaultForm == 'Tablet'}">Tablet</option>
+                            <option value="Capsule" th:selected="${medicine.defaultForm == 'Capsule'}">Capsule</option>
+                            <option value="Syrup" th:selected="${medicine.defaultForm == 'Syrup'}">Syrup</option>
+                            <option value="Suspension" th:selected="${medicine.defaultForm == 'Suspension'}">Suspension</option>
+                            <option value="Injection" th:selected="${medicine.defaultForm == 'Injection'}">Injection</option>
+                            <option value="Cream" th:selected="${medicine.defaultForm == 'Cream'}">Cream</option>
+                            <option value="Ointment" th:selected="${medicine.defaultForm == 'Ointment'}">Ointment</option>
+                            <option value="Gel" th:selected="${medicine.defaultForm == 'Gel'}">Gel</option>
+                            <option value="Drops" th:selected="${medicine.defaultForm == 'Drops'}">Drops</option>
+                            <option value="Eye Drops" th:selected="${medicine.defaultForm == 'Eye Drops'}">Eye Drops</option>
+                            <option value="Nasal Spray" th:selected="${medicine.defaultForm == 'Nasal Spray'}">Nasal Spray</option>
+                            <option value="Inhaler" th:selected="${medicine.defaultForm == 'Inhaler'}">Inhaler</option>
+                            <option value="Powder" th:selected="${medicine.defaultForm == 'Powder'}">Powder</option>
+                            <option value="Sachet" th:selected="${medicine.defaultForm == 'Sachet'}">Sachet</option>
+                            <option value="Suppository" th:selected="${medicine.defaultForm == 'Suppository'}">Suppository</option>
+                            <option value="Lotion" th:selected="${medicine.defaultForm == 'Lotion'}">Lotion</option>
+                            <option value="Mouthwash" th:selected="${medicine.defaultForm == 'Mouthwash'}">Mouthwash</option>
+                            <option value="Oral Solution" th:selected="${medicine.defaultForm == 'Oral Solution'}">Oral Solution</option>
+                            <option value="Dispersible Tablet" th:selected="${medicine.defaultForm == 'Dispersible Tablet'}">Dispersible Tablet</option>
+                            <option value="Chewable Tablet" th:selected="${medicine.defaultForm == 'Chewable Tablet'}">Chewable Tablet</option>
+                            <option value="Effervescent Tablet" th:selected="${medicine.defaultForm == 'Effervescent Tablet'}">Effervescent Tablet</option>
+                            <option value="Extended-Release Tablet" th:selected="${medicine.defaultForm == 'Extended-Release Tablet'}">Extended-Release Tablet</option>
+                            <option value="Oral Suspension" th:selected="${medicine.defaultForm == 'Oral Suspension'}">Oral Suspension</option>
+                            <option value="Eye Ointment" th:selected="${medicine.defaultForm == 'Eye Ointment'}">Eye Ointment</option>
+                            <option value="Ear Drops" th:selected="${medicine.defaultForm == 'Ear Drops'}">Ear Drops</option>
+                            <option value="Nasal Drops" th:selected="${medicine.defaultForm == 'Nasal Drops'}">Nasal Drops</option>
+                            <option value="Transdermal Patch" th:selected="${medicine.defaultForm == 'Transdermal Patch'}">Transdermal Patch</option>
+                            <option value="Shampoo" th:selected="${medicine.defaultForm == 'Shampoo'}">Shampoo</option>
+                            <option value="Gargle" th:selected="${medicine.defaultForm == 'Gargle'}">Gargle</option>
+                            <option value="Lozenges" th:selected="${medicine.defaultForm == 'Lozenges'}">Lozenges</option>
+                            <option value="Mouth Paint" th:selected="${medicine.defaultForm == 'Mouth Paint'}">Mouth Paint</option>
+                            <option value="Nebulizer Solution" th:selected="${medicine.defaultForm == 'Nebulizer Solution'}">Nebulizer Solution</option>
+                            <option value="IV Infusion" th:selected="${medicine.defaultForm == 'IV Infusion'}">IV Infusion</option>
+                            <option value="Dental Gel" th:selected="${medicine.defaultForm == 'Dental Gel'}">Dental Gel</option>
+                            <option value="Medicated Soap" th:selected="${medicine.defaultForm == 'Medicated Soap'}">Medicated Soap</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="grid-column:1 / -1">
+                        <label class="form-label" for="defaultInstructions">Default instructions</label>
+                        <select class="form-select" id="defaultInstructions" name="defaultInstructions">
+                            <option value="">Select instructions</option>
+                            <option value="before food" th:selected="${medicine.defaultInstructions == 'before food'}">before food</option>
+                            <option value="after food" th:selected="${medicine.defaultInstructions == 'after food'}">after food</option>
+                            <option value="before and after food" th:selected="${medicine.defaultInstructions == 'before and after food'}">before and after food</option>
+                            <option value="half tablet before and after" th:selected="${medicine.defaultInstructions == 'half tablet before and after'}">half tablet before and after</option>
+                        </select>
+                    </div>
+                    <div class="form-actions" style="grid-column:1 / -1">
+                        <a class="btn btn-secondary" th:href="@{/clinic/inventory}">Cancel</a>
+                        <button class="btn btn-primary" type="submit" data-submit-guard>Save changes</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

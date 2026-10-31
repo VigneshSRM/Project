@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${pageTitle} + ' · IMS'">Doctor</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:with="formHeading=${editing ? 'Edit doctor' : 'Add doctor'},
+                  formBadge=${editing ? 'Editing' : 'New doctor'}">
+    <div th:replace="~{fragments/page-header :: header(
+            ${formHeading},
+            'A doctor login is optional. Create one when the doctor needs the consultation workspace.',
+            null, null, ${formBadge}, 'info')}"></div>
+
+    <div class="content-body">
+        <form th:action="${editing ? '/clinic/doctors/' + doctorId + '/edit' : '/clinic/doctors'}"
+              th:object="${doctorForm}" method="post" data-guard>
+            <div class="alert alert-error" th:if="${#fields.hasGlobalErrors()}">
+                <div th:each="error : ${#fields.globalErrors()}" th:text="${error}"></div>
+            </div>
+            <section class="card form-section">
+                <div class="card-header"><h2 class="card-title">Doctor details</h2></div>
+                <div class="card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="name">Full name <span class="required">*</span></label>
+                            <input class="form-input" id="name" th:field="*{name}" required maxlength="200">
+                            <div class="form-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="specialization">Specialization</label>
+                            <input class="form-input" id="specialization" th:field="*{specialization}" maxlength="100"
+                                   placeholder="General medicine">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="fee">Consultation fee</label>
+                            <input class="form-input" id="fee" type="number" min="0" step="0.01" th:field="*{fee}">
+                            <div class="form-error" th:if="${#fields.hasErrors('fee')}" th:errors="*{fee}"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="status">Status</label>
+                            <select class="form-select" id="status" th:field="*{status}">
+                                <option th:each="option : ${statuses}" th:value="${option}" th:text="${option}">ACTIVE</option>
+                            </select>
+                        </div>
+                        <div class="form-group" th:if="${doctorId == null}">
+                            <label class="form-label" for="email">Doctor login email (optional)</label>
+                            <input class="form-input" id="email" type="email" th:field="*{email}" maxlength="254"
+                                   placeholder="doctor@clinic.example">
+                            <div class="form-help">Sends a single-use invitation to the doctor workspace. Leave blank for a record-only doctor.</div>
+                            <div class="form-error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="form-actions">
+                <a class="btn btn-secondary" th:href="@{/clinic/doctors}">Cancel</a>
+                <button class="btn btn-primary" type="submit" data-submit-guard>
+                    <span th:text="${editing ? 'Save changes' : 'Create doctor'}">Save</span>
+                </button>
+            </div>
+        </form>
+    </div>
+    </div>
+</div>
+</body>
+</html>

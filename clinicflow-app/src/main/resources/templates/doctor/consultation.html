@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Consultation · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${'Consultation · ' + appointment.patientName},
+            ${appointment.when + ' · ' + appointment.clinicName},
+            null, null, ${appointment.status}, ${appointment.statusTone})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${consultationSaved}" th:text="${consultationSaved}"></div>
+        <div class="alert alert-error" th:if="${consultationError}" th:text="${consultationError}"></div>
+
+        <div class="profile-layout">
+            <div>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Patient summary</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Patient</dt><dd>
+                                <span class="cell-primary" th:text="${appointment.patientName}">Patient</span>
+                                <div class="cell-muted" th:text="${appointment.patientPublicId}">PAT-0000</div>
+                            </dd></div>
+                            <div><dt>Date of birth</dt><dd th:text="${appointment.dob + (appointment.gender == null ? '' : ' · ' + appointment.gender)}">—</dd></div>
+                            <div><dt>Contact</dt><dd>
+                                <div th:text="${appointment.mobile ?: 'No mobile'}">—</div>
+                                <div class="cell-muted" th:text="${appointment.email ?: 'No email'}">—</div>
+                            </dd></div>
+                            <div><dt>Reason for visit</dt><dd th:text="${appointment.reason ?: '—'}">—</dd></div>
+                            <div><dt>Blood group</dt><dd th:text="${appointment.bloodGroup ?: '—'}">—</dd></div>
+                            <div><dt>Allergies</dt><dd th:text="${appointment.allergies ?: 'None recorded'}">—</dd></div>
+                            <div><dt>Existing conditions</dt><dd th:text="${appointment.conditions ?: 'None recorded'}">—</dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4" th:if="${appointment.consultationId == null}">
+                    <div class="card-header"><h2 class="card-title">Start consultation</h2></div>
+                    <div class="card-body">
+                        <div class="alert alert-info" th:if="${appointment.status.name() != 'CHECKED_IN' and appointment.status.name() != 'CONFIRMED'}">
+                            The clinic has not checked this patient in yet. Confirm or check in the appointment before starting.
+                        </div>
+                        <form th:action="@{'/doctor/appointments/' + ${appointment.id} + '/start'}" method="post"
+                              th:if="${appointment.status.name() == 'CHECKED_IN' or appointment.status.name() == 'CONFIRMED'}">
+                            <button class="btn btn-primary" type="submit">Start consultation</button>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="card mt-4"
+                         th:if="${appointment.consultationId != null and appointment.consultationStatus != null and appointment.consultationStatus.name() == 'DRAFT'}">
+                    <div class="card-header">
+                        <h2 class="card-title">Consultation record</h2>
+                        <span class="badge tone-warning">DRAFT</span>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{'/doctor/appointments/' + ${appointment.id} + '/draft'}"
+                              th:object="${consultationForm}" method="post" data-guard>
+                            <div class="form-group">
+                                <label class="form-label" for="diagnosis">Diagnosis <span class="required">*</span></label>
+                                <textarea class="form-input" id="diagnosis" th:field="*{diagnosis}" maxlength="2000"
+                                          placeholder="Working or confirmed diagnosis"></textarea>
+                                <div class="form-error" th:if="${#fields.hasErrors('diagnosis')}" th:errors="*{diagnosis}"></div>
+                                <div class="form-help">A diagnosis is required before finalising; drafts may be saved without one.</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="notes">Clinical notes</label>
+                                <textarea class="form-input" id="notes" th:field="*{notes}" maxlength="10000"
+                                          style="min-height:180px"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="followUp">Follow-up</label>
+                                <input class="form-input" id="followUp" type="datetime-local" th:field="*{followUp}">
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn btn-secondary" type="submit">Save draft</button>
+                                <button class="btn btn-primary" type="submit"
+                                        th:formaction="@{/doctor/appointments/{id}/finalise(id=${appointment.id})}"
+                                        onclick="return confirm('Finalise this consultation? The record becomes read-only and only addenda can be added.')">
+                                    Finalise consultation
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="card mt-4"
+                         th:if="${appointment.consultationStatus != null and appointment.consultationStatus.name() == 'FINAL'}">
+                    <div class="card-header">
+                        <h2 class="card-title">Final consultation</h2>
+                        <span class="badge tone-success">FINAL</span>
+                    </div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Diagnosis</dt><dd th:text="${appointment.diagnosis}">—</dd></div>
+                            <div><dt>Notes</dt><dd th:text="${appointment.notes ?: '—'}">—</dd></div>
+                            <div><dt>Follow-up</dt><dd th:text="${appointment.followUp ?: '—'}">—</dd></div>
+                            <div><dt>Finalised</dt><dd th:text="${appointment.finalisedAt}">—</dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4" th:if="${appointment.consultationStatus != null and appointment.consultationStatus.name() == 'FINAL'}">
+                    <div class="card-header"><h2 class="card-title">Addenda</h2></div>
+                    <div class="card-body">
+                        <div class="timeline" th:if="${!#lists.isEmpty(appointment.addenda())}">
+                            <article class="timeline-item" th:each="addendum : ${appointment.addenda()}">
+                                <div class="timeline-meta" th:text="${addendum.when}">—</div>
+                                <strong th:text="${addendum.reason}">Reason</strong>
+                                <p th:text="${addendum.text}">Text</p>
+                            </article>
+                        </div>
+                        <div class="empty-state" th:if="${#lists.isEmpty(appointment.addenda())}">
+                            <h2>No addenda</h2>
+                            <p>Addenda preserve the final record while adding later clarifications.</p>
+                        </div>
+                        <form class="mt-4" th:action="@{'/doctor/appointments/' + ${appointment.id} + '/addenda'}"
+                              method="post" data-guard>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label" for="addendumReason">Reason <span class="required">*</span></label>
+                                    <input class="form-input" id="addendumReason" name="addendumReason" required maxlength="300">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="addendumText">Addendum text <span class="required">*</span></label>
+                                    <textarea class="form-input" id="addendumText" name="addendumText" required maxlength="10000"></textarea>
+                                </div>
+                            </div>
+                            <div class="form-actions" style="justify-content:flex-start">
+                                <button class="btn btn-secondary" type="submit">Add addendum</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Prescription</h2></div>
+                    <div class="card-body stack-4">
+                        <div th:if="${appointment.consultationId == null}" class="muted">
+                            Start the consultation before issuing a prescription.
+                        </div>
+                        <a th:if="${appointment.consultationId != null and appointment.prescriptionCode == null}"
+                           class="btn btn-primary"
+                           th:href="@{'/doctor/appointments/' + ${appointment.id} + '/prescription/new'}">
+                            Create prescription
+                        </a>
+                        <div th:if="${appointment.prescriptionCode != null}">
+                            <div class="kpi-label">Issued prescription</div>
+                            <a class="prescription-code"
+                               th:href="@{'/doctor/prescriptions/' + ${appointment.prescriptionId}}"
+                               th:text="${appointment.prescriptionCode}">CODE</a>
+                        </div>
+                        <a class="btn btn-ghost" th:href="@{/doctor/appointments}">Back to appointments</a>
+                        <a class="btn btn-ghost" th:href="@{/doctor/appointments/{id}(id=${appointment.id})}">Refresh record</a>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

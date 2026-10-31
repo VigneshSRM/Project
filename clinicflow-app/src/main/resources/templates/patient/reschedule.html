@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Reschedule appointment · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Reschedule appointment',
+            ${appointment.clinicName + ' · ' + appointment.doctorName},
+            null, null, ${appointment.publicId}, 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-error" th:if="${appointmentError}" th:text="${appointmentError}"></div>
+
+        <section class="card">
+            <div class="card-header"><h2 class="card-title">Choose a new date</h2></div>
+            <div class="card-body">
+                <form class="search-bar" th:action="@{'/patient/appointments/' + ${appointment.id} + '/reschedule'}"
+                      method="get">
+                    <div>
+                        <label class="form-label" for="date">Date</label>
+                        <input class="form-input" id="date" type="date" name="date" th:value="${selectedDate}" required>
+                    </div>
+                    <button class="btn btn-secondary" type="submit">Show slots</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Open slots</h2>
+                <span class="muted" th:text="${selectedDate}">Date</span>
+            </div>
+            <div class="card-body">
+                <form th:if="${!#lists.isEmpty(slots.slots())}"
+                      th:action="@{'/patient/appointments/' + ${appointment.id} + '/reschedule'}"
+                      th:object="${rescheduleForm}" method="post" data-guard>
+                    <input type="hidden" th:field="*{clinicId}">
+                    <input type="hidden" th:field="*{doctorId}">
+                    <div class="slot-grid" role="radiogroup" aria-label="Available appointment slots">
+                        <label class="slot-option" th:each="slot : ${slots.slots()}">
+                            <input type="radio" name="slotStart" th:value="${slot.start}" required>
+                            <span th:text="${slot.label}">09:00</span>
+                        </label>
+                    </div>
+                    <div class="form-actions" style="justify-content:flex-start">
+                        <a class="btn btn-secondary"
+                           th:href="@{'/patient/appointments/' + ${appointment.id}}">Cancel</a>
+                        <button class="btn btn-primary" type="submit" data-submit-guard>Confirm new slot</button>
+                    </div>
+                </form>
+
+                <div class="empty-state" th:if="${#lists.isEmpty(slots.slots())}">
+                    <h2>No open slots on this date</h2>
+                    <p th:if="${slots.scheduleCount == 0}">The doctor has no schedule on this weekday. Try another date.</p>
+                    <p th:if="${slots.scheduleCount > 0}">Every slot on this date is booked or has passed. Try another date.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

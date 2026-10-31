@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Appointment · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${'Appointment ' + appointment.publicId},
+            ${appointment.when + ' · ' + appointment.clinicName},
+            null, null, ${appointment.status}, ${appointment.statusTone})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${appointmentSaved}" th:text="${appointmentSaved}"></div>
+        <div class="alert alert-error" th:if="${appointmentError}" th:text="${appointmentError}"></div>
+
+        <div class="profile-layout">
+            <div>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Appointment details</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Clinic</dt><dd>
+                                <span class="cell-primary" th:text="${appointment.clinicName}">Clinic</span>
+                                <div class="cell-muted"
+                                     th:text="${appointment.clinicAddress + ', ' + appointment.clinicCity}">Address</div>
+                                <div class="cell-muted" th:text="${appointment.clinicPhone ?: 'No clinic phone' }">Phone</div>
+                            </dd></div>
+                            <div><dt>Doctor</dt><dd>
+                                <span th:text="${appointment.doctorName}">Doctor</span>
+                                <div class="cell-muted" th:text="${appointment.doctorSpecialization ?: '—'}">Specialization</div>
+                            </dd></div>
+                            <div><dt>Slot</dt><dd th:text="${appointment.when}">—</dd></div>
+                            <div><dt>Reason</dt><dd th:text="${appointment.reason ?: '—'}">—</dd></div>
+                            <div th:if="${appointment.cancelReason != null}"><dt>Cancellation</dt><dd>
+                                <span th:text="${appointment.cancelReason}">—</span>
+                            </dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4" th:if="${appointment.consultationFinal}">
+                    <div class="card-header"><h2 class="card-title">Consultation summary</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Diagnosis</dt><dd th:text="${appointment.diagnosis ?: '—'}">—</dd></div>
+                            <div><dt>Notes</dt><dd th:text="${appointment.notes ?: '—'}">—</dd></div>
+                        </dl>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Manage booking</h2></div>
+                    <div class="card-body stack-4">
+                        <div th:if="${!appointment.canChange}" class="muted">
+                            This appointment can no longer be changed online. Contact the clinic directly for help.
+                        </div>
+                        <a class="btn btn-secondary" th:if="${appointment.canChange}"
+                           th:href="@{'/patient/appointments/' + ${appointment.id} + '/reschedule'}">Reschedule</a>
+                        <div th:if="${appointment.canChange}" class="reject-panel">
+                            <details>
+                                <summary>Cancel appointment</summary>
+                                <form class="mt-4" th:action="@{'/patient/appointments/' + ${appointment.id} + '/cancel'}"
+                                      method="post">
+                                    <div class="form-group">
+                                        <label class="form-label" for="reason">Cancellation reason</label>
+                                        <textarea class="form-input" id="reason" name="reason" maxlength="300"
+                                                  placeholder="Optional, shared with the clinic"></textarea>
+                                    </div>
+                                    <button class="btn btn-danger" type="submit"
+                                            onclick="return confirm('Cancel this appointment?')">Cancel appointment</button>
+                                </form>
+                            </details>
+                        </div>
+                        <a class="btn btn-ghost" th:href="@{/patient/appointments}">Back to appointments</a>
+                    </div>
+                </section>
+
+                <section class="card mt-4" th:if="${appointment.prescriptionCode != null}">
+                    <div class="card-header"><h2 class="card-title">Prescription</h2></div>
+                    <div class="card-body">
+                        <a class="prescription-code"
+                           th:href="@{'/patient/prescriptions/' + ${appointment.prescriptionId}}"
+                           th:text="${appointment.prescriptionCode}">CODE</a>
+                        <p class="muted">Open the prescription to view, print or email it.</p>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

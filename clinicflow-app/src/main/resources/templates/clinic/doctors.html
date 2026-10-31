@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Doctors · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Doctors',
+            'Doctors, consultation fees and weekly availability for this clinic.',
+            'Add doctor',
+            '/clinic/doctors/new',
+            ${#lists.size(doctors) + ' doctors'},
+            'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${doctorSaved}" th:text="${doctorSaved}"></div>
+        <div class="alert alert-error" th:if="${doctorError}" th:text="${doctorError}"></div>
+
+        <section class="card">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr><th>Doctor</th><th>Specialization</th><th>Fee</th><th>Schedules</th><th>Login</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${doctors}">
+                        <td><a class="cell-primary" th:href="@{'/clinic/doctors/' + ${row.id}}"
+                               th:text="${row.name}">Dr Name</a></td>
+                        <td th:text="${row.specialization ?: '—'}">—</td>
+                        <td th:text="${row.fee == null ? '—' : row.fee}">—</td>
+                        <td th:text="${row.schedules}">0</td>
+                        <td>
+                            <div th:text="${row.accountEmail}">—</div>
+                            <div class="cell-muted" th:text="${row.accountStatus}">No login</div>
+                        </td>
+                        <td><span class="badge"
+                                  th:classappend="${row.status.name() == 'ACTIVE' ? 'tone-success' : 'tone-neutral'}"
+                                  th:text="${row.status}">ACTIVE</span></td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(doctors)}">
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <h2>No doctors yet</h2>
+                                <p>Add the first doctor, assign a fee and create weekly availability.</p>
+                                <a class="btn btn-primary" th:href="@{/clinic/doctors/new}">Add doctor</a>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

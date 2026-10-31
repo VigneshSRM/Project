@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>My Appointments · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'My Appointments',
+            'Open a checked-in appointment to start the consultation and issue a prescription.',
+            null, null, ${allDates ? 'All dates' : selectedDate}, 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-error" th:if="${appointmentError}" th:text="${appointmentError}"></div>
+
+        <section class="card">
+            <div class="card-body">
+                <form class="search-bar" th:action="@{/doctor/appointments}" method="get">
+                    <div>
+                        <label class="form-label" for="date">Date</label>
+                        <input class="form-input" id="date" type="date" name="date" th:value="${selectedDate}">
+                    </div>
+                    <div>
+                        <label class="form-label" for="status">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">Any status</option>
+                            <option th:each="option : ${statuses}" th:value="${option}"
+                                    th:selected="${selectedStatus != null and selectedStatus.name() == option.name()}"
+                                    th:text="${option}">CHECKED_IN</option>
+                        </select>
+                    </div>
+                    <input type="hidden" name="scope" value="day">
+                    <button class="btn btn-primary" type="submit">Filter</button>
+                    <a class="btn btn-ghost" th:href="@{/doctor/appointments(scope='all')}">All dates</a>
+                    <a class="btn btn-ghost" th:href="@{/doctor/appointments}">Today</a>
+                </form>
+            </div>
+        </section>
+
+        <section class="card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Appointment queue</h2>
+                <span class="muted" th:text="${#lists.size(appointments) + ' appointments'}">0 appointments</span>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr><th>Appointment</th><th>When</th><th>Patient</th><th>Status</th><th>Consultation</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${appointments}">
+                        <td><a class="cell-primary" th:href="@{'/doctor/appointments/' + ${row.id}}"
+                               th:text="${row.publicId}">APT-0000</a></td>
+                        <td th:text="${row.when}">—</td>
+                        <td>
+                            <div th:text="${row.patient}">Patient</div>
+                            <div class="cell-muted" th:text="${row.patientPublicId}">PAT-0000</div>
+                        </td>
+                        <td><span class="badge" th:classappend="'tone-' + ${row.tone}"
+                                  th:text="${row.status}">CHECKED_IN</span></td>
+                        <td th:text="${row.consultationStatus}">Not started</td>
+                        <td><a class="btn btn-ghost btn-sm" th:href="@{'/doctor/appointments/' + ${row.id}}">Open</a></td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(appointments)}">
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <h2>No appointments</h2>
+                                <p>No appointments match this filter. The clinic desk checks patients in.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

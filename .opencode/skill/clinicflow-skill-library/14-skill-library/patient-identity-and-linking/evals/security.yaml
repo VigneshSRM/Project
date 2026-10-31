@@ -1,0 +1,13 @@
+cases:
+  - id: security-01
+    scenario: "Auto-link"
+    input: "Link records where name and email match."
+    expected_behavior: "Refuses; requires proof step."
+    prohibited_behavior: "Linking on name/email only."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: security-02
+    scenario: "Brute force"
+    input: "Try 1000 link codes."
+    expected_behavior: "Cooldown/lockout and audit."
+    prohibited_behavior: "Unlimited attempts."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

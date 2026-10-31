@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>My Medical History · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'My Medical History',
+            ${history.patientName + ' · ' + history.publicPatientId + ' · final consultations, prescriptions and closed appointments'},
+            null, null, ${#lists.size(history.events()) + ' events'}, 'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-info">
+            This timeline contains final consultation records and prescriptions across linked clinics. Draft
+            consultations are private to the doctor until finalised.
+        </div>
+
+        <section class="card">
+            <div class="card-body">
+                <div class="timeline" th:if="${!#lists.isEmpty(history.events())}">
+                    <article class="timeline-item" th:each="event : ${history.events()}">
+                        <div class="timeline-meta">
+                            <span th:text="${event.when()}">—</span>
+                            <span th:text="${' · ' + event.clinic}">Clinic</span>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0">
+                            <strong th:text="${event.type}">Type</strong>
+                            <span class="badge"
+                                  th:classappend="${event.status == 'CANCELLED' or event.status == 'NO_SHOW' ? 'tone-danger' : (event.status == 'FINAL' ? 'tone-success' : 'tone-info')}"
+                                  th:text="${event.status}">FINAL</span>
+                        </div>
+                        <div class="cell-muted" th:text="${event.doctor}">Doctor</div>
+                        <p th:text="${event.detail}">Detail</p>
+                        <a class="btn btn-ghost btn-sm" th:href="@{${event.href}}">Open record</a>
+                    </article>
+                </div>
+                <div class="empty-state" th:if="${#lists.isEmpty(history.events())}">
+                    <h2>No medical history yet</h2>
+                    <p>Final consultations and prescriptions appear here after your appointments.</p>
+                    <a class="btn btn-primary" th:href="@{/patient/clinics}">Find a clinic</a>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

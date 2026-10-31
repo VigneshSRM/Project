@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${pageTitle != null ? pageTitle + ' · IMS' : 'IMS · Infeara Medical System'}">IMS</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/ims-mark.svg}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div class="app-shell">
+    <header class="topbar">
+        <div class="topbar-left">
+            <button id="sidebar-toggle" class="icon-button" type="button"
+                    aria-label="Toggle navigation" aria-controls="sidebar" aria-expanded="true">
+                <svg class="nav-icon" aria-hidden="true"><use th:href="@{/icons.svg#menu}"></use></svg>
+            </button>
+            <a class="brand" th:href="@{/}" aria-label="IMS — Infeara Medical System home">
+                <th:block th:replace="~{fragments/brand :: wordmark}"></th:block>
+            </a>
+            <span class="topbar-divider" aria-hidden="true"></span>
+            <span class="topbar-org"
+                  th:text="${#authentication != null ? #authentication.principal.displayName : ''}">Organization</span>
+        </div>
+        <div class="topbar-spacer"></div>
+        <div class="topbar-user">
+            <span class="topbar-org" th:text="${roleLabel}">Role</span>
+            <span class="user-chip">
+                <span class="avatar"
+                      th:text="${#authentication != null ? #strings.substring(#authentication.principal.displayName, 0, 1) : '?'}">A</span>
+                <span th:text="${#authentication != null ? #authentication.principal.displayName : ''}">User</span>
+            </span>
+            <form th:action="@{/logout}" method="post" style="margin:0">
+                <button class="icon-button" type="submit" title="Sign out" aria-label="Sign out">
+                    <svg class="nav-icon" aria-hidden="true"><use th:href="@{/icons.svg#log-out}"></use></svg>
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <div class="app-body">
+        <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+            <div class="sidebar-label" th:text="${roleLabel}">Workspace</div>
+            <nav aria-label="Main">
+                <ul class="nav-list">
+                    <li th:each="item : ${navItems}">
+                        <a class="nav-item"
+                           th:classappend="${item.isActive(currentPath)} ? 'is-active' : ''"
+                           th:href="@{${item.href}}"
+                           th:attr="aria-current=${item.isActive(currentPath)} ? 'page' : null">
+                            <svg class="nav-icon" aria-hidden="true">
+                                <use th:href="@{|/icons.svg#${item.icon}|}"></use>
+                            </svg>
+                            <span th:text="${item.label}">Navigation item</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <span class="muted" style="color:#7F93AD;font-size:11px">IMS v0.1 · Infeara Medical System</span>
+            </div>
+        </aside>
+        <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+        <div class="main-column">
+            <nav class="breadcrumb-bar" aria-label="Breadcrumb">
+                <ol class="breadcrumbs">
+                    <li th:each="crumb, iter : ${breadcrumbs}">
+                        <a th:if="${!crumb.current}" th:href="@{${crumb.href}}" th:text="${crumb.label}">Home</a>
+                        <span th:if="${crumb.current}" th:text="${pageTitle != null ? pageTitle : crumb.label}" aria-current="page">Current</span>
+                        <span th:if="${!iter.last}" class="breadcrumb-sep" aria-hidden="true">/</span>
+                    </li>
+                </ol>
+            </nav>
+
+            <main class="content" id="main-content">
+                <th:block layout:fragment="content">
+                    <div class="content-body">
+                        <div class="empty-state">
+                            <h2>Content placeholder</h2>
+                            <p>The page content could not be rendered.</p>
+                        </div>
+                    </div>
+                </th:block>
+            </main>
+        </div>
+    </div>
+</div>
+<script th:src="@{/js/app.js}"></script>
+<th:block layout:fragment="scripts"></th:block>
+</body>
+</html>

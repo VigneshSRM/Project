@@ -1,0 +1,19 @@
+cases:
+  - id: basic-01
+    scenario: "Create"
+    input: "Doctor issues prescription with 2 medicines."
+    expected_behavior: "32-char random ID, Valid, Not Dispensed, email event, shown in patient account."
+    prohibited_behavior: "Saving with zero items or sequential ID."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Expiry"
+    input: "Read prescription the day after expiry."
+    expected_behavior: "Status Expired without any batch job."
+    prohibited_behavior: "Showing Valid."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-03
+    scenario: "ID format"
+    input: "Generate IDs."
+    expected_behavior: "SecureRandom, 62-char alphabet, length 32, unique index, case-sensitive column."
+    prohibited_behavior: "Using UUID substring, timestamp or sequence."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

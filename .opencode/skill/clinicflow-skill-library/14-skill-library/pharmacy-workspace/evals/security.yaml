@@ -1,0 +1,19 @@
+cases:
+  - id: security-01
+    scenario: "Race"
+    input: "Two pharmacies dispense the last 6 tablets simultaneously."
+    expected_behavior: "One succeeds, other sees updated remaining 0."
+    prohibited_behavior: "Both succeed."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: security-02
+    scenario: "Enumeration"
+    input: "Script random 32-char IDs."
+    expected_behavior: "Rate limit/lockout, hashed attempts logged."
+    prohibited_behavior: "Unlimited lookups."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: security-03
+    scenario: "Data minimisation"
+    input: "Show diagnosis to pharmacist."
+    expected_behavior: "Hidden by default; flags confirmation."
+    prohibited_behavior: "Showing silently."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

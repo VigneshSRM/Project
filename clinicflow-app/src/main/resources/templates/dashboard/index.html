@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${pageTitle} + ' · IMS'">Dashboard</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${dashboard.title},
+            ${dashboard.subtitle},
+            ${dashboard.primaryActionLabel},
+            ${dashboard.primaryActionHref},
+            null,
+            null)}"></div>
+
+    <div class="content-body">
+        <section class="kpi-grid" aria-label="Key metrics">
+            <a class="kpi-card" th:each="kpi : ${dashboard.kpis}"
+               th:classappend="'tone-' + ${kpi.tone}"
+               th:href="@{${kpi.href}}">
+                <div class="kpi-label" th:text="${kpi.label}">Metric</div>
+                <div class="kpi-value" th:text="${kpi.value}">0</div>
+                <div class="kpi-hint" th:text="${kpi.hint}">Detail</div>
+            </a>
+        </section>
+
+        <section class="card" aria-labelledby="activity-title">
+            <div class="card-header">
+                <h2 class="card-title" id="activity-title" th:text="${dashboard.activityTitle}">Recent activity</h2>
+            </div>
+            <div class="card-body" style="padding-top:12px">
+                <div class="table-wrap" th:if="${!#lists.isEmpty(dashboard.activity)}">
+                    <table class="data-table">
+                        <thead>
+                        <tr>
+                            <th scope="col">Record</th>
+                            <th scope="col">Detail</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="nowrap">Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="row : ${dashboard.activity}">
+                            <td class="cell-primary" th:text="${row.primary}">Record</td>
+                            <td class="cell-muted" th:text="${row.secondary}">Detail</td>
+                            <td>
+                                <span th:if="${!#strings.isEmpty(row.status)}"
+                                      class="badge" th:classappend="'tone-' + ${row.tone}"
+                                      th:text="${row.status}">Status</span>
+                                <span th:if="${#strings.isEmpty(row.status)}" class="muted">-</span>
+                            </td>
+                            <td>
+                                <a class="btn btn-ghost btn-sm" th:if="${row.href != null}"
+                                   th:href="@{${row.href}}">Open</a>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty-state" th:if="${#lists.isEmpty(dashboard.activity)}">
+                    <h2>Nothing here yet</h2>
+                    <p>Activity will appear as records are created.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/auth}">
+<head>
+    <title>Check your email · IMS</title>
+</head>
+<body>
+<div layout:fragment="auth-content">
+    <h1 class="auth-title">Check your email</h1>
+    <p class="auth-subtitle">One more step before you can sign in.</p>
+
+    <div class="alert alert-success" th:if="${resendMessage}" th:text="${resendMessage}"></div>
+
+    <div class="alert alert-info">
+        We sent a single-use verification link to
+        <strong th:text="${registeredEmail}">your email address</strong>.
+        The link expires in 24 hours. Check your spam folder if it does not arrive.
+    </div>
+
+    <p class="muted" style="font-size:13px">
+        The account stays in <strong>Pending verification</strong> until the link is opened.
+        Sign-in is blocked until then.
+    </p>
+
+    <form th:action="@{/register/resend}" method="post" style="margin-top:var(--s-5)">
+        <input type="hidden" name="email" th:value="${registeredEmail}">
+        <button class="btn btn-secondary" type="submit" style="width:100%">Resend verification email</button>
+    </form>
+
+    <div class="auth-footer">
+        <span>Already verified?</span>
+        <a th:href="@{/login}">Back to sign in</a>
+    </div>
+</div>
+</body>
+</html>

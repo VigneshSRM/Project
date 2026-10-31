@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${detail.pharmacy().name} + ' · IMS'">Pharmacy</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${detail.pharmacy().name},
+            ${detail.pharmacy().city + ', ' + detail.pharmacy().state + ' · Licence ' + detail.pharmacy().licenceNumber},
+            null, null, ${detail.pharmacy().status}, ${detail.pharmacy().status.name() == 'ACTIVE' ? 'success' : (detail.pharmacy().status.name() == 'SUSPENDED' ? 'danger' : 'warning')})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${pharmacyCreated}" th:text="${pharmacyCreated}"></div>
+        <div class="alert alert-success" th:if="${pharmacyUpdated}" th:text="${pharmacyUpdated}"></div>
+        <div class="alert alert-error" th:if="${pharmacyError}" th:text="${pharmacyError}"></div>
+
+        <div class="profile-layout">
+            <div>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Pharmacy profile</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Licence</dt><dd th:text="${detail.pharmacy().licenceNumber}">—</dd></div>
+                            <div><dt>Address</dt><dd>
+                                <span th:text="${detail.pharmacy().addressLine1}">1 Main Street</span><br>
+                                <span th:if="${detail.pharmacy().addressLine2 != null}"
+                                      th:text="${detail.pharmacy().addressLine2}"></span>
+                                <span th:if="${detail.pharmacy().addressLine2 != null}"><br></span>
+                                <span th:text="${detail.pharmacy().city}">City</span>,
+                                <span th:text="${detail.pharmacy().state}">State</span>
+                                <span th:text="${detail.pharmacy().postalCode}">00000</span>
+                            </dd></div>
+                            <div><dt>Phone</dt><dd th:text="${detail.pharmacy().phone ?: '—'}">—</dd></div>
+                            <div><dt>Email</dt><dd th:text="${detail.pharmacy().email ?: '—'}">—</dd></div>
+                            <div><dt>Enrolled</dt><dd th:text="${#temporals.format(detail.pharmacy().createdAt, 'dd MMM yyyy, HH:mm')}">—</dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4">
+                    <div class="card-header"><h2 class="card-title">Pharmacy users</h2></div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+                            <tbody>
+                            <tr th:each="link : ${detail.users()}">
+                                <td class="cell-primary" th:text="${link.user.email}">user@example.com</td>
+                                <td th:text="${link.role}">PHARMACIST</td>
+                                <td><span class="badge tone-info" th:text="${link.status}">ACTIVE</span></td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(detail.users())}">
+                                <td colspan="3" class="cell-muted">No pharmacy users yet.</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Platform controls</h2></div>
+                    <div class="card-body stack-4">
+                        <form th:if="${detail.pharmacy().status.name() != 'SUSPENDED'}"
+                              th:action="@{'/admin/pharmacies/' + ${detail.pharmacy().pharmacyId} + '/status'}" method="post">
+                            <input type="hidden" name="status" value="SUSPENDED">
+                            <button class="btn btn-danger" type="submit"
+                                    onclick="return confirm('Suspend this pharmacy? Its users will not be able to verify or dispense prescriptions.')">
+                                Suspend pharmacy
+                            </button>
+                        </form>
+                        <form th:if="${detail.pharmacy().status.name() == 'SUSPENDED'}"
+                              th:action="@{'/admin/pharmacies/' + ${detail.pharmacy().pharmacyId} + '/status'}" method="post">
+                            <input type="hidden" name="status" value="ACTIVE">
+                            <button class="btn btn-primary" type="submit">Activate pharmacy</button>
+                        </form>
+                        <form th:if="${detail.pharmacy().status.name() == 'PENDING'}"
+                              th:action="@{'/admin/pharmacies/' + ${detail.pharmacy().pharmacyId} + '/invite/resend'}" method="post">
+                            <button class="btn btn-secondary" type="submit">Resend administrator invitation</button>
+                        </form>
+                        <a class="btn btn-ghost" th:href="@{/admin/pharmacies}">Back to pharmacies</a>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

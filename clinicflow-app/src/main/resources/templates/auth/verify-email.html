@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/auth}">
+<head>
+    <title>Verify email · IMS</title>
+</head>
+<body>
+<div layout:fragment="auth-content">
+    <h1 class="auth-title">Verify your email</h1>
+    <p class="auth-subtitle">Email verification keeps patient records protected.</p>
+
+    <div class="alert alert-success" th:if="${verified == true}">
+        Your email address is verified. You can sign in and continue.
+    </div>
+    <div class="alert alert-error" th:if="${verified == false}">
+        <span th:text="${verifyError != null ? verifyError : 'This verification link is invalid, expired or already used.'}">
+            This verification link is invalid or has expired.
+        </span>
+    </div>
+    <div class="alert alert-success" th:if="${resent}">
+        If that address is waiting for verification, a new link has been sent.
+    </div>
+    <div class="alert alert-error" th:if="${resendError}" th:text="${resendError}"></div>
+
+    <div th:if="${verified == true}">
+        <a class="btn btn-primary" th:href="@{/login(verified=1)}" style="width:100%">Sign in</a>
+    </div>
+
+    <div th:if="${verified != true}">
+        <div class="alert alert-info">
+            Enter the email address you registered with and we will send a new single-use link.
+            The response is the same whether or not the address exists.
+        </div>
+        <form th:action="@{/verify-email/resend}" method="post">
+            <div class="form-group">
+                <label class="form-label" for="verify-email">Email address</label>
+                <input class="form-input" id="verify-email" name="email" type="email"
+                       autocomplete="email" placeholder="you@example.com" required>
+            </div>
+            <button class="btn btn-primary" type="submit" style="width:100%">Send a new link</button>
+        </form>
+    </div>
+
+    <div class="auth-footer">
+        <span>Back to</span>
+        <a th:href="@{/login}">Sign in</a>
+    </div>
+</div>
+</body>
+</html>

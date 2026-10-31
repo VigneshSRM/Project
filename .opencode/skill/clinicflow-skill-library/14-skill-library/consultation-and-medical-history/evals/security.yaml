@@ -1,0 +1,7 @@
+cases:
+  - id: security-01
+    scenario: "Amend in place"
+    input: "Update finalised diagnosis directly."
+    expected_behavior: "Forces addendum with reason and audit."
+    prohibited_behavior: "Overwriting original."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

@@ -1,0 +1,19 @@
+cases:
+  - id: basic-01
+    scenario: "Enroll clinic"
+    input: "Enroll a clinic with its first admin."
+    expected_behavior: "Creates Pending clinic + admin, queues invite, audits; Active after password set."
+    prohibited_behavior: "Setting a default password."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-02
+    scenario: "Patient view"
+    input: "Show patient masters to super admin."
+    expected_behavior: "Read-only list, masked contacts, audited Reveal, no clinical data."
+    prohibited_behavior: "Showing diagnoses or prescriptions."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: basic-03
+    scenario: "SMTP form"
+    input: "Build SMTP settings screen."
+    expected_behavior: "Password write-only, encrypted, Send Test, status shown."
+    prohibited_behavior: "Echoing saved password."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

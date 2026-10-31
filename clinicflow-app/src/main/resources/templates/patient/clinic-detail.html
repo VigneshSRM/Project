@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${clinic.name} + ' · IMS'">Clinic</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${clinic.name},
+            ${clinic.city + ', ' + clinic.state + ' · ' + clinic.addressLine1},
+            null, null, ${#lists.size(clinic.doctors()) + ' doctors'}, 'info')}"></div>
+
+    <div class="content-body">
+        <div class="profile-layout">
+            <div>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Clinic information</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Address</dt><dd>
+                                <span th:text="${clinic.addressLine1}">1 Main Street</span>
+                                <span th:if="${clinic.addressLine2 != null}"><br><span th:text="${clinic.addressLine2}"></span></span>
+                                <br><span th:text="${clinic.city}"></span>,
+                                <span th:text="${clinic.state}"></span>
+                                <span th:text="${clinic.postalCode}"></span>
+                            </dd></div>
+                            <div><dt>Area / district</dt><dd th:text="${(clinic.area ?: '—') + (clinic.district == null ? '' : ' · ' + clinic.district)}">—</dd></div>
+                            <div><dt>Phone</dt><dd th:text="${clinic.phone ?: '—'}">—</dd></div>
+                            <div><dt>Email</dt><dd th:text="${clinic.email ?: '—'}">—</dd></div>
+                            <div><dt>Opening hours</dt><dd th:text="${clinic.openingHours ?: 'Not published'}">—</dd></div>
+                            <div><dt>Consultation fees</dt><dd th:text="${clinic.fees ?: 'Not published'}">—</dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4">
+                    <div class="card-header"><h2 class="card-title">Doctors and availability</h2></div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Doctor</th><th>Specialization</th><th>Fee</th><th>Weekly schedules</th><th></th></tr></thead>
+                            <tbody>
+                            <tr th:each="doctor : ${clinic.doctors()}">
+                                <td class="cell-primary" th:text="${doctor.name}">Doctor</td>
+                                <td th:text="${doctor.specialization ?: '—'}">—</td>
+                                <td th:text="${doctor.fee == null ? '—' : doctor.fee}">—</td>
+                                <td th:text="${doctor.schedules}">0</td>
+                                <td>
+                                    <a class="btn btn-primary btn-sm"
+                                       th:href="@{/patient/book(clinicId=${clinic.id}, doctorId=${doctor.id})}">Book</a>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(clinic.doctors())}">
+                                <td colspan="5" class="cell-muted">No active doctors are available for booking at this clinic.</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Ready to book?</h2></div>
+                    <div class="card-body stack-4">
+                        <p class="muted" style="margin:0">
+                            Pick a doctor and an open slot. The slot is reserved only when you confirm, so availability
+                            is checked again at that moment.
+                        </p>
+                        <a class="btn btn-primary"
+                           th:if="${!#lists.isEmpty(clinic.doctors())}"
+                           th:href="@{/patient/book(clinicId=${clinic.id})}">Start booking</a>
+                        <a class="btn btn-ghost" th:href="@{/patient/clinics}">Back to clinics</a>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

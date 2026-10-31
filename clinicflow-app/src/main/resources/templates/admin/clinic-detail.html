@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${detail.clinic().name} + ' · IMS'">Clinic</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            ${detail.clinic().name},
+            ${detail.clinic().city + ', ' + detail.clinic().state + ' · ' + detail.clinic().postalCode},
+            null, null, ${detail.clinic().status}, ${detail.clinic().status.name() == 'ACTIVE' ? 'success' : (detail.clinic().status.name() == 'SUSPENDED' ? 'danger' : 'warning')})}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${clinicCreated}" th:text="${clinicCreated}"></div>
+        <div class="alert alert-success" th:if="${clinicUpdated}" th:text="${clinicUpdated}"></div>
+        <div class="alert alert-error" th:if="${clinicError}" th:text="${clinicError}"></div>
+
+        <div class="profile-layout">
+            <div>
+                <section class="card" aria-labelledby="clinic-summary">
+                    <div class="card-header"><h2 class="card-title" id="clinic-summary">Clinic profile</h2></div>
+                    <div class="card-body">
+                        <dl class="detail-list">
+                            <div><dt>Address</dt><dd>
+                                <span th:text="${detail.clinic().addressLine1}">1 Main Street</span><br>
+                                <span th:if="${detail.clinic().addressLine2 != null}" th:text="${detail.clinic().addressLine2}"></span>
+                                <span th:if="${detail.clinic().addressLine2 != null}"><br></span>
+                                <span th:text="${detail.clinic().city}">City</span>,
+                                <span th:text="${detail.clinic().state}">State</span>
+                                <span th:text="${detail.clinic().postalCode}">00000</span>
+                            </dd></div>
+                            <div><dt>Phone</dt><dd th:text="${detail.clinic().phone ?: '—'}">—</dd></div>
+                            <div><dt>Email</dt><dd th:text="${detail.clinic().email ?: '—'}">—</dd></div>
+                            <div><dt>Opening hours</dt><dd th:text="${detail.clinic().openingHours ?: '—'}">—</dd></div>
+                            <div><dt>Fees</dt><dd th:text="${detail.clinic().fees ?: '—'}">—</dd></div>
+                            <div><dt>Coordinates</dt><dd>
+                                <span th:if="${detail.clinic().latitude != null}"
+                                      th:text="${detail.clinic().latitude + ', ' + detail.clinic().longitude}">—</span>
+                                <span th:unless="${detail.clinic().latitude != null}">Not set</span>
+                            </dd></div>
+                            <div><dt>Enrolled</dt><dd th:text="${#temporals.format(detail.clinic().createdAt, 'dd MMM yyyy, HH:mm')}">—</dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card mt-4" aria-labelledby="clinic-admins">
+                    <div class="card-header"><h2 class="card-title" id="clinic-admins">Administrator accounts</h2></div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Email</th><th>Status</th><th>Created</th></tr></thead>
+                            <tbody>
+                            <tr th:each="admin : ${detail.admins()}">
+                                <td class="cell-primary" th:text="${admin.email}">admin@example.com</td>
+                                <td><span class="badge"
+                                          th:classappend="${admin.status.name() == 'ACTIVE' ? 'tone-success' : 'tone-warning'}"
+                                          th:text="${admin.status}">ACTIVE</span></td>
+                                <td th:text="${#temporals.format(admin.createdAt, 'dd MMM yyyy, HH:mm')}">—</td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(detail.admins())}">
+                                <td colspan="3" class="cell-muted">No administrator account.</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="card mt-4" aria-labelledby="clinic-enrollments">
+                    <div class="card-header"><h2 class="card-title" id="clinic-enrollments">Enrollment history</h2></div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Status</th><th>Enrolled by</th><th>Enrolled at</th><th>Activated at</th></tr></thead>
+                            <tbody>
+                            <tr th:each="enrollment : ${detail.enrollments()}">
+                                <td><span class="badge tone-info" th:text="${enrollment.status}">PENDING</span></td>
+                                <td th:text="${enrollment.enrolledBy.email}">admin@example.com</td>
+                                <td th:text="${#temporals.format(enrollment.enrolledAt, 'dd MMM yyyy, HH:mm')}">—</td>
+                                <td th:text="${enrollment.activatedAt == null ? '—' : #temporals.format(enrollment.activatedAt, 'dd MMM yyyy, HH:mm')}">—</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <aside>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Platform controls</h2></div>
+                    <div class="card-body stack-4">
+                        <div class="kpi-grid" style="grid-template-columns:1fr 1fr">
+                            <div class="kpi-card tone-info"><div class="kpi-label">Doctors</div><div class="kpi-value" th:text="${detail.doctors()}">0</div></div>
+                            <div class="kpi-card tone-info"><div class="kpi-label">Schedules</div><div class="kpi-value" th:text="${detail.schedules()}">0</div></div>
+                            <div class="kpi-card tone-success"><div class="kpi-label">Patients</div><div class="kpi-value" th:text="${detail.patients()}">0</div></div>
+                            <div class="kpi-card tone-info"><div class="kpi-label">Appointments</div><div class="kpi-value" th:text="${detail.appointments()}">0</div></div>
+                        </div>
+
+                        <form th:if="${detail.clinic().status.name() != 'SUSPENDED'}"
+                              th:action="@{'/admin/clinics/' + ${detail.clinic().clinicId} + '/status'}" method="post">
+                            <input type="hidden" name="status" value="SUSPENDED">
+                            <button class="btn btn-danger" type="submit"
+                                    onclick="return confirm('Suspend this clinic? Patients will no longer see it and staff will lose access to clinic workflows.')">
+                                Suspend clinic
+                            </button>
+                        </form>
+                        <form th:if="${detail.clinic().status.name() == 'SUSPENDED'}"
+                              th:action="@{'/admin/clinics/' + ${detail.clinic().clinicId} + '/status'}" method="post">
+                            <input type="hidden" name="status" value="ACTIVE">
+                            <button class="btn btn-primary" type="submit">Activate clinic</button>
+                        </form>
+
+                        <form th:if="${detail.clinic().status.name() == 'PENDING'}"
+                              th:action="@{'/admin/clinics/' + ${detail.clinic().clinicId} + '/invite/resend'}" method="post">
+                            <button class="btn btn-secondary" type="submit">Resend administrator invitation</button>
+                        </form>
+
+                        <a class="btn btn-ghost" th:href="@{/admin/clinics}">Back to clinics</a>
+                    </div>
+                </section>
+
+                <section class="card mt-4" th:if="${detail.clinic().status.name() == 'PENDING'}">
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            Waiting for the administrator to accept the invitation and choose a password.
+                            The clinic becomes active immediately after acceptance.
+                        </div>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

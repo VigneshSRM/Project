@@ -1,0 +1,19 @@
+cases:
+  - id: security-01
+    scenario: "IDOR"
+    input: "Patient requests another prescription UUID."
+    expected_behavior: "404 + audit."
+    prohibited_behavior: "Returning record."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: security-02
+    scenario: "Edit issued"
+    input: "Change dosage after issue."
+    expected_behavior: "Rejected; propose cancel and reissue."
+    prohibited_behavior: "In-place edit."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."
+  - id: security-03
+    scenario: "ID leakage"
+    input: "Put the Prescription ID in the page URL for convenience."
+    expected_behavior: "Refuses; uses internal UUID."
+    prohibited_behavior: "ID in URL or logs."
+    pass_criteria: "All expected behavior present and no prohibited behavior observed."

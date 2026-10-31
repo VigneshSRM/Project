@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Clinic Enrollment · IMS</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div th:replace="~{fragments/page-header :: header(
+            'Clinic Enrollment',
+            'Enroll clinics, invite their first administrator and control platform access.',
+            'Enroll clinic',
+            '/admin/clinics/new',
+            ${#lists.size(clinics) + ' clinics'},
+            'info')}"></div>
+
+    <div class="content-body">
+        <div class="alert alert-success" th:if="${clinicCreated}" th:text="${clinicCreated}"></div>
+        <div class="alert alert-error" th:if="${clinicError}" th:text="${clinicError}"></div>
+
+        <section class="card">
+            <div class="card-header">
+                <h2 class="card-title">Enrolled clinics</h2>
+                <span class="muted">Pending clinics become visible to patients after the administrator accepts the invitation.</span>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>Clinic</th>
+                        <th>Location</th>
+                        <th>Administrator</th>
+                        <th>Doctors</th>
+                        <th>Patients</th>
+                        <th>Status</th>
+                        <th>Enrolled</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${clinics}">
+                        <td>
+                            <a class="cell-primary" th:href="@{'/admin/clinics/' + ${row.id}}"
+                               th:text="${row.name}">Clinic</a>
+                        </td>
+                        <td>
+                            <span th:text="${row.city}">City</span>,
+                            <span th:text="${row.state}">State</span>
+                        </td>
+                        <td>
+                            <div th:text="${row.adminEmail}">admin@example.com</div>
+                            <div class="cell-muted" th:text="${row.adminStatus}">PENDING</div>
+                        </td>
+                        <td th:text="${row.doctors}">0</td>
+                        <td th:text="${row.patients}">0</td>
+                        <td><span class="badge" th:classappend="'tone-' + ${row.statusTone}"
+                                  th:text="${row.statusLabel}">ACTIVE</span></td>
+                        <td th:text="${row.enrolledOn}">01 Jan 2026</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(clinics)}">
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <h2>No clinics yet</h2>
+                                <p>Enroll the first clinic to send its administrator an invitation.</p>
+                                <a class="btn btn-primary" th:href="@{/admin/clinics/new}">Enroll clinic</a>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>
