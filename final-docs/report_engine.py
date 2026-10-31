@@ -1,1130 +1,1088 @@
 """
-Dual-Target Academic Report Engine (DOCX + PDF) for SRMIST BCA Final Project Report.
-Renders an identical structured document AST to:
-  1. Editable Microsoft Word (.docx) using python-docx (Times New Roman 12pt, 1.5 spacing)
-  2. Print-ready PDF (.pdf) using ReportLab Platypus (STIXGeneral Times-metric serif 12pt, 1.5 spacing)
-Supports two-pass exact page-number resolution for Table of Contents, List of Figures, and List of Tables.
+Exact SRMIST-DDE Reference Format Report Engine
+Matches 'example docs/DC2332306010017_SECURE_DATA_SHARING_USING_RSA (2).pdf'
+in page geometry, pure #000000 Times New Roman 14pt typography, 24pt leading,
+front-matter order (Title Page -> Bonafide Certificate -> Acknowledgement ->
+Dotted-Leader Table of Contents -> Abstract -> Chapters 1..6), dedicated diagram
+pages, 2-per-page live screenshots, plain unboxed source code listings, and
+IEEE numbered references. Outputs synchronized PDF and DOCX files.
 """
 import os
 import html
-import docx
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.section import WD_SECTION
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import nsdecls, qn
+from PIL import Image as PILImage
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle,
-    Image as RLImage, PageBreak, NextPageTemplate, Flowable, KeepTogether, Preformatted
+    Image as RLImage, PageBreak, KeepTogether, Flowable
 )
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
-from PIL import Image as PILImage
 
-# Register STIXGeneral (Times-compatible academic serif) & DejaVuSansMono
-MPL_FONTS = "/home/user/Project/.venv/lib/python3.11/site-packages/matplotlib/mpl-data/fonts/ttf"
-pdfmetrics.registerFont(TTFont("TimesAcad", f"{MPL_FONTS}/STIXGeneral.ttf"))
-pdfmetrics.registerFont(TTFont("TimesAcad-Bold", f"{MPL_FONTS}/STIXGeneralBol.ttf"))
-pdfmetrics.registerFont(TTFont("TimesAcad-Italic", f"{MPL_FONTS}/STIXGeneralItalic.ttf"))
-pdfmetrics.registerFont(TTFont("TimesAcad-BoldItalic", f"{MPL_FONTS}/STIXGeneralBolIta.ttf"))
-pdfmetrics.registerFontFamily(
-    "TimesAcad",
-    normal="TimesAcad",
-    bold="TimesAcad-Bold",
-    italic="TimesAcad-Italic",
-    boldItalic="TimesAcad-BoldItalic",
-)
-pdfmetrics.registerFont(TTFont("MonoCode", f"{MPL_FONTS}/DejaVuSansMono.ttf"))
-pdfmetrics.registerFont(TTFont("MonoCode-Bold", f"{MPL_FONTS}/DejaVuSansMono-Bold.ttf"))
+from docx import Document
+from docx.shared import Inches, Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT, WD_TAB_LEADER
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml import OxmlElement, parse_xml
+from docx.oxml.ns import qn, nsdecls
 
 
-def to_roman(n):
-    vals = [(100, 'c'), (90, 'xc'), (50, 'l'), (40, 'xl'),
-            (10, 'x'), (9, 'ix'), (5, 'v'), (4, 'iv'), (1, 'i')]
-    out = []
-    for v, sym in vals:
-        while n >= v:
-            out.append(sym)
-            n -= v
-    return "".join(out) or "i"
+def _register_times_fonts():
+    dejavu_reg = "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
+    dejavu_bld = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+    if os.path.exists(dejavu_reg):
+        pdfmetrics.registerFont(TTFont("SymSerif", dejavu_reg))
+    if os.path.exists(dejavu_bld):
+        pdfmetrics.registerFont(TTFont("SymSerif-Bold", dejavu_bld))
 
 
-class BookmarkFlowable(Flowable):
-    """Zero-height flowable that records the exact page label where an item lands."""
-    def __init__(self, key, tracker, chapter_title=None):
+_register_times_fonts()
+
+
+class BookmarkTrackerFlowable(Flowable):
+    """Zero-height flowable recording exact 1-based physical PDF page number."""
+    def __init__(self, key, tracker):
         super().__init__()
         self.key = key
         self.tracker = tracker
-        self.chapter_title = chapter_title
         self.width = 0
         self.height = 0
 
+    def wrap(self, availWidth, availHeight):
+        return (0, 0)
+
     def draw(self):
-        canv = self.canv
-        state = getattr(canv, "_ims_state", {"mode": "prelim", "prelim_start": 1, "main_start": None, "chapter": ""})
-        pno = canv.getPageNumber()
-        if self.chapter_title:
-            state["chapter"] = self.chapter_title
-        if state["mode"] == "prelim":
-            label = to_roman(pno - state["prelim_start"] + 1)
-        else:
-            label = str(pno - state["main_start"] + 1)
-        self.tracker[self.key] = label
+        self.tracker[self.key] = self.canv.getPageNumber()
 
 
-class ModeSwitchFlowable(Flowable):
-    """Switches PDF page numbering from Roman preliminary to Arabic main body starting at 1."""
-    def __init__(self, new_mode):
+class DottedTocLineFlowable(Flowable):
+    """
+    Renders an exact SRMIST-style Table of Contents line in 14pt Times New Roman:
+      - Chapter banner line (page_str is None): '1. CHAPTER 1 –'
+      - Section line with dotted leader: '1.0 INTRODUCTION................................6'
+    """
+    def __init__(self, label, page_str, width, indent=0.0, font_name="Times-Roman", font_size=13.5, line_height=26.0):
         super().__init__()
-        self.new_mode = new_mode
-        self.width = 0
-        self.height = 0
+        self.label = label
+        self.page_str = page_str
+        self.width = width
+        self.indent = indent
+        self.font_name = font_name
+        self.font_size = font_size
+        self.height = line_height
+
+    def wrap(self, availWidth, availHeight):
+        self.width = availWidth
+        return (availWidth, self.height)
 
     def draw(self):
-        state = self.canv._ims_state
-        state["mode"] = self.new_mode
-        if self.new_mode == "main" and state["main_start"] is None:
-            state["main_start"] = self.canv.getPageNumber()
+        c = self.canv
+        c.saveState()
+        c.setFillColor(colors.black)
+        c.setFont(self.font_name, self.font_size)
+        y = 6.0
+
+        c.drawString(self.indent, y, self.label)
+
+        if self.page_str is not None and str(self.page_str) != "":
+            pg_s = str(self.page_str)
+            c.drawRightString(self.width, y, pg_s)
+
+            lbl_w = c.stringWidth(self.label, self.font_name, self.font_size)
+            pg_w = c.stringWidth(pg_s, self.font_name, self.font_size)
+            dot_w = c.stringWidth(".", self.font_name, self.font_size)
+            start_x = self.indent + lbl_w + 3.0
+            end_x = self.width - pg_w - 3.0
+            if end_x > start_x + dot_w * 2:
+                n_dots = int((end_x - start_x) / dot_w)
+                dots = "." * n_dots
+                c.drawRightString(end_x, y, dots)
+        c.restoreState()
 
 
-# ---------------- DOCX XML HELPERS ----------------
-def docx_cell_bg(cell, hex_color):
+def _docx_cell_borders(cell, color="000000", sz="4", val="single"):
     tcPr = cell._tc.get_or_add_tcPr()
-    tcPr.append(parse_xml(f'<w:shd {nsdecls("w")} w:fill="{hex_color}"/>'))
-
-
-def docx_cell_margins(cell, top=90, bottom=90, left=130, right=130):
-    tcPr = cell._tc.get_or_add_tcPr()
-    tcPr.append(parse_xml(
-        f'<w:tcMar {nsdecls("w")}>'
-        f'<w:top w:w="{top}" w:type="dxa"/><w:bottom w:w="{bottom}" w:type="dxa"/>'
-        f'<w:left w:w="{left}" w:type="dxa"/><w:right w:w="{right}" w:type="dxa"/>'
-        f'</w:tcMar>'
-    ))
-
-
-def docx_cell_borders(cell, color="CBD5E1", sz="4"):
-    tcPr = cell._tc.get_or_add_tcPr()
-    tcPr.append(parse_xml(
+    borders = parse_xml(
         f'<w:tcBorders {nsdecls("w")}>'
-        f'<w:top w:val="single" w:sz="{sz}" w:space="0" w:color="{color}"/>'
-        f'<w:bottom w:val="single" w:sz="{sz}" w:space="0" w:color="{color}"/>'
-        f'<w:left w:val="single" w:sz="{sz}" w:space="0" w:color="{color}"/>'
-        f'<w:right w:val="single" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'<w:top w:val="{val}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'<w:bottom w:val="{val}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'<w:left w:val="{val}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
+        f'<w:right w:val="{val}" w:sz="{sz}" w:space="0" w:color="{color}"/>'
         f'</w:tcBorders>'
-    ))
-
-
-def docx_repeat_header(row):
-    trPr = row._tr.get_or_add_trPr()
-    trPr.append(OxmlElement('w:tblHeader'))
-    trPr.append(OxmlElement('w:cantSplit'))
-
-
-def docx_cant_split(row):
-    trPr = row._tr.get_or_add_trPr()
-    trPr.append(OxmlElement('w:cantSplit'))
-
-
-def docx_add_page_number_field(run):
-    fldChar1 = parse_xml(r'<w:fldChar %s w:fldCharType="begin"/>' % nsdecls('w'))
-    instrText = parse_xml(r'<w:instrText %s xml:space="preserve"> PAGE </w:instrText>' % nsdecls('w'))
-    fldChar2 = parse_xml(r'<w:fldChar %s w:fldCharType="separate"/>' % nsdecls('w'))
-    fldChar3 = parse_xml(r'<w:fldChar %s w:fldCharType="end"/>' % nsdecls('w'))
-    run._r.append(fldChar1)
-    run._r.append(instrText)
-    run._r.append(fldChar2)
-    run._r.append(fldChar3)
-
-
-def docx_set_section_pgnum(section, fmt="decimal", start=1):
-    sectPr = section._sectPr
-    for child in list(sectPr):
-        if child.tag == qn('w:pgNumType'):
-            sectPr.remove(child)
-    pgNumType = parse_xml(f'<w:pgNumType {nsdecls("w")} w:fmt="{fmt}" w:start="{start}"/>')
-    sectPr.append(pgNumType)
-
-
-def docx_set_page_border(section):
-    sectPr = section._sectPr
-    pgBorders = parse_xml(
-        f'<w:pgBorders {nsdecls("w")} w:offsetFrom="page">'
-        f'<w:top w:val="double" w:sz="12" w:space="24" w:color="0F2744"/>'
-        f'<w:left w:val="double" w:sz="12" w:space="24" w:color="0F2744"/>'
-        f'<w:bottom w:val="double" w:sz="12" w:space="24" w:color="0F2744"/>'
-        f'<w:right w:val="double" w:sz="12" w:space="24" w:color="0F2744"/>'
-        f'</w:pgBorders>'
     )
-    sectPr.append(pgBorders)
+    tcPr.append(borders)
+
+
+def _docx_cell_margins(cell, top=80, bottom=80, left=110, right=110):
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcMar = OxmlElement("w:tcMar")
+    for m, val in [("top", top), ("bottom", bottom), ("left", left), ("right", right)]:
+        node = OxmlElement(f"w:{m}")
+        node.set(qn("w:w"), str(val))
+        node.set(qn("w:type"), "dxa")
+        tcMar.append(node)
+    tcPr.append(tcMar)
 
 
 class AcademicReportBuilder:
     """
-    Collects structured academic document blocks once and renders both
-    SRMIST-compliant DOCX and synchronized PDF with two-pass TOC/LOF/LOT pagination.
+    Synchronized PDF + DOCX builder matching the exact visual & structural format of
+    'example docs/DC2332306010017_SECURE_DATA_SHARING_USING_RSA (2).pdf'.
     """
-    def __init__(self, project_title, short_title, student_name, reg_no, degree_title,
-                 guide_name, guide_title, dept_line1, dept_line2, month_year, srm_logo_path):
+    def __init__(
+        self,
+        project_title,
+        abstract_heading_title,
+        student_name,
+        reg_no,
+        degree_title="BACHELOR OF COMPUTER APPLICATIONS",
+        guide_upper="Dr. A. THIRUMURTHI RAJA M.C.A., M.E., PH.D.,",
+        guide_mixed="Dr.A.Thirumurthi Raja",
+        month_year="NOV 2026",
+        srm_logo_path=None,
+    ):
         self.project_title = project_title
-        self.short_title = short_title
+        self.abstract_heading_title = abstract_heading_title
         self.student_name = student_name
         self.reg_no = reg_no
         self.degree_title = degree_title
-        self.guide_name = guide_name
-        self.guide_title = guide_title
-        self.dept_line1 = dept_line1
-        self.dept_line2 = dept_line2
+        self.guide_upper = guide_upper
+        self.guide_mixed = guide_mixed
         self.month_year = month_year
         self.srm_logo_path = srm_logo_path
 
-        self.prelim_blocks = []
-        self.body_blocks = []
-        self.toc_entries = []   # (level, key, label)
-        self.lof_entries = []   # (key, fig_num, caption)
-        self.lot_entries = []   # (key, tbl_num, caption)
-        self._id_counter = 0
+        self._seq = 0
+        self.toc_entries = []      # list of dict: {kind: 'chap'|'sec', label, key, indent, show_page}
+        self.abstract_paras = []   # list of strings
+        self.body_blocks = []      # ordered content blocks for Chapters 1..6
 
-    def _next_key(self, prefix):
-        self._id_counter += 1
-        return f"{prefix}_{self._id_counter:04d}"
+    def _next_key(self, prefix="k"):
+        self._seq += 1
+        return f"{prefix}_{self._seq:04d}"
 
-    # -------- Block Recording API --------
-    def add_prelim_heading(self, title, toc_label=None):
-        key = self._next_key("prelim")
-        self.toc_entries.append((1, key, toc_label or title.title()))
-        self.prelim_blocks.append(("prelim_h1", key, title))
+    # ------------------------------------------------------------------
+    # Authoring API matching DC2332306010017_SECURE_DATA_SHARING_USING_RSA
+    # ------------------------------------------------------------------
+    def add_abstract_paragraph(self, text):
+        self.abstract_paras.append(text)
 
-    def add_prelim_p(self, text, bold_prefix=None, align="justify", space_after=8):
-        self.prelim_blocks.append(("p", text, bold_prefix, align, space_after))
+    def start_chapter(self, chap_num, subtitle=None):
+        """
+        Adds '1. CHAPTER 1 –' to TOC and starts a new page with centered 'CHAPTER N'
+        (plus optional centered subtitle like 'MODULES' in Chapter 3).
+        """
+        self.toc_entries.append({
+            "kind": "chap",
+            "label": f"{chap_num}. CHAPTER {chap_num} –",
+            "key": None,
+            "indent": 0.0,
+            "show_page": False,
+        })
+        self.body_blocks.append(("chapter", chap_num, subtitle))
 
-    def add_prelim_table(self, headers, rows, col_widths=None):
-        self.prelim_blocks.append(("raw_table", headers, rows, col_widths))
+    def toc_only_entry(self, toc_label, key=None, indent=0.0, show_page=True):
+        self.toc_entries.append({
+            "kind": "sec",
+            "label": toc_label,
+            "key": key,
+            "indent": indent,
+            "show_page": show_page,
+        })
 
-    def add_prelim_page_break(self):
-        self.prelim_blocks.append(("page_break",))
-
-    def add_toc_placeholder(self):
-        key = self._next_key("prelim")
-        self.toc_entries.append((1, key, "Table of Contents"))
-        self.prelim_blocks.append(("toc_placeholder", key))
-
-    def add_lof_placeholder(self):
-        key = self._next_key("prelim")
-        self.toc_entries.append((1, key, "List of Figures"))
-        self.prelim_blocks.append(("lof_placeholder", key))
-
-    def add_lot_placeholder(self):
-        key = self._next_key("prelim")
-        self.toc_entries.append((1, key, "List of Tables"))
-        self.prelim_blocks.append(("lot_placeholder", key))
-
-    # -------- Main Body Recording API --------
-    def start_chapter(self, chap_num, chap_title):
-        """Starts a new numbered chapter (or unnumbered major part like REFERENCES / APPENDICES)."""
-        key = self._next_key("chap")
-        if chap_num is not None:
-            full_label = f"CHAPTER {chap_num}: {chap_title.upper()}"
-            running = f"Chapter {chap_num}: {chap_title}"
-        else:
-            full_label = chap_title.upper()
-            running = chap_title
-        self.toc_entries.append((0, key, full_label))
-        self.body_blocks.append(("chapter", key, chap_num, chap_title.upper(), running))
-
-    def h2(self, sec_num, title):
+    def section(self, num_str, title_upper, toc_label=None, toc_indent=0.0, show_page_in_toc=True,
+                new_page=False, trailing_colon=True, render_heading=True):
+        """
+        Adds a numbered section (e.g., '1.0 INTRODUCTION:') and registers it in TOC.
+        """
         key = self._next_key("sec")
-        label = f"{sec_num} {title}" if sec_num else title
-        self.toc_entries.append((1, key, label))
-        self.body_blocks.append(("h2", key, label))
+        t_lbl = toc_label if toc_label is not None else f"{num_str} {title_upper}".strip()
+        self.toc_entries.append({
+            "kind": "sec",
+            "label": t_lbl,
+            "key": key,
+            "indent": toc_indent,
+            "show_page": show_page_in_toc,
+        })
+        disp = f"{num_str} {title_upper}".strip()
+        if trailing_colon and not disp.endswith(":"):
+            disp += ":"
+        self.body_blocks.append(("section", key, disp, new_page, render_heading))
+        return key
 
-    def h3(self, sub_num, title):
-        key = self._next_key("sub")
-        label = f"{sub_num} {title}" if sub_num else title
-        self.toc_entries.append((2, key, label))
-        self.body_blocks.append(("h3", key, label))
+    def subheading(self, text, space_before=12, space_after=8):
+        """Unnumbered or minor bold 14pt heading inside a section (not added to TOC)."""
+        self.body_blocks.append(("subheading", text, space_before, space_after))
 
-    def p(self, text, bold_prefix=None, space_after=7):
-        self.body_blocks.append(("p", text, bold_prefix, "justify", space_after))
+    def p(self, text, bold_prefix=None, first_indent=0, space_after=10):
+        self.body_blocks.append(("p", text, bold_prefix, first_indent, space_after))
 
-    def bullet(self, bold_prefix, text):
-        self.body_blocks.append(("bullet", bold_prefix, text))
+    def bullet(self, first, second=None, bold_prefix=None):
+        """Square bullet '▪' matching ref_011.png & ref_027.png."""
+        if bold_prefix is not None:
+            bp, text = bold_prefix, first
+        elif second is not None:
+            bp, text = first, second
+        else:
+            bp, text = None, first
+        self.body_blocks.append(("bullet", text, bp))
 
-    def table(self, tbl_num, caption, headers, rows, col_widths=None):
-        key = self._next_key("tbl")
-        self.lot_entries.append((key, tbl_num, caption))
-        self.body_blocks.append(("table", key, tbl_num, caption, headers, rows, col_widths))
+    def numbered_list(self, items):
+        """Numbered module list '1. ...' matching ref_023.png."""
+        self.body_blocks.append(("numlist", list(items)))
 
-    def figure(self, fig_num, caption, image_path, width_in=5.8):
-        key = self._next_key("fig")
-        self.lof_entries.append((key, fig_num, caption))
-        self.body_blocks.append(("figure", key, fig_num, caption, image_path, width_in))
+    def colon_spec_list(self, pairs):
+        """
+        Exact '▪ Label : Value' aligned specification block matching Page 11 (ref_011.png)
+        for 1.3.1 HARDWARE REQUIREMENTS and 1.3.2 SOFTWARE REQUIREMENTS.
+        """
+        self.body_blocks.append(("colon_specs", list(pairs)))
 
-    def code(self, title, code_text):
-        wrapped_lines = []
+    def diagram_page(self, num_str, heading_text, img_path, toc_label=None, toc_indent=18.0,
+                     width_in=6.25, max_height_in=7.6, include_in_toc=True):
+        """
+        Dedicated diagram page matching Pages 12-17 (ref_012.png, ref_013.png):
+        Starts on a new page, renders bold heading top-left, centers diagram below.
+        """
+        key = self._next_key("diag")
+        if include_in_toc:
+            t_lbl = toc_label if toc_label is not None else f"{num_str} {heading_text.rstrip(':').upper()}".strip()
+            self.toc_entries.append({
+                "kind": "sec",
+                "label": t_lbl,
+                "key": key,
+                "indent": toc_indent,
+                "show_page": True,
+            })
+        disp = f"{num_str} {heading_text}".strip() if num_str else heading_text
+        self.body_blocks.append(("diagram_page", key, disp, img_path, width_in, max_height_in))
+
+    def literature_item(self, title, year, author, abstract_text):
+        """
+        Exact Literature Survey entry matching Pages 18-22 (ref_018.png):
+        TITLE: ... / YEAR OF PUBLISHING: ... / AUTHOR NAME: ... / ABSTRACT: ...
+        """
+        self.body_blocks.append(("lit_item", title, str(year), author, abstract_text))
+
+    def table(self, title, headers, rows, col_widths=None):
+        """Clean black-bordered academic table in pure Times New Roman #000000."""
+        self.body_blocks.append(("table", title, headers, rows, col_widths))
+
+    def screenshots_gallery(self, num_str, title_upper, screenshot_items):
+        """
+        Matches Section 6.2 SCREENSHOTS (Pages 60-63, ref_061.png):
+        Starts on a new page, renders '6.2 SCREENSHOTS:' at top-left, and stacks
+        2 crisp authentic application screenshots per page across consecutive pages.
+        screenshot_items: list of (caption_str, img_path)
+        """
+        key = self._next_key("shots")
+        self.toc_entries.append({
+            "kind": "sec",
+            "label": f"{num_str} {title_upper}".strip(),
+            "key": key,
+            "indent": 0.0,
+            "show_page": True,
+        })
+        self.body_blocks.append(("screenshots", key, f"{num_str} {title_upper}:", list(screenshot_items)))
+
+    def code_file(self, filename_header, code_text):
+        """
+        Matches Section 6.3 CODING (Pages 64-80, ref_075.png):
+        Plain black Times New Roman filename header ('SecurityConfig.java:') followed
+        by clean unboxed left-aligned code lines flowing naturally across pages.
+        """
+        wrapped = []
         for raw in code_text.strip("\n").splitlines():
-            if len(raw) <= 81:
-                wrapped_lines.append(raw)
+            raw_clean = raw.replace("\t", "    ")
+            if len(raw_clean) <= 84:
+                wrapped.append(raw_clean)
             else:
-                lead = len(raw) - len(raw.lstrip(" "))
-                cont_indent = " " * min(lead + 4, 16)
-                rem = raw
+                lead = len(raw_clean) - len(raw_clean.lstrip(" "))
+                cont = " " * min(lead + 4, 16)
+                rem = raw_clean
                 first = True
-                while len(rem) > 81:
-                    limit = 81
-                    cut = rem.rfind(" ", lead + 10 if first else len(cont_indent) + 8, limit + 1)
+                while len(rem) > 84:
+                    cut = rem.rfind(" ", lead + 8 if first else len(cont) + 8, 85)
                     if cut <= 0:
-                        cut = limit
-                    wrapped_lines.append(rem[:cut].rstrip())
-                    rem = cont_indent + rem[cut:].lstrip()
+                        cut = 84
+                    wrapped.append(rem[:cut].rstrip())
+                    rem = cont + rem[cut:].lstrip()
                     first = False
                 if rem.strip():
-                    wrapped_lines.append(rem)
-        self.body_blocks.append(("code", title, "\n".join(wrapped_lines)))
+                    wrapped.append(rem)
+        self.body_blocks.append(("code_file", filename_header, wrapped))
 
     def page_break(self):
         self.body_blocks.append(("page_break",))
 
-    # ==========================================================================
-    # PDF RENDERER (ReportLab Platypus, Two-Pass Exact Page Numbers)
-    # ==========================================================================
+    # ==================================================================
+    # PDF RENDERER (Two-Pass Exact Physical Page Numbers)
+    # ==================================================================
     def _build_pdf_once(self, pdf_path, page_map):
         tracker = {}
-        W, H = A4  # 595.27 x 841.89 pt (8.27 x 11.69 in)
-        left_m = 1.25 * inch
-        right_m = 1.00 * inch
-        top_m = 1.00 * inch
-        bot_m = 1.00 * inch
-        usable_w = W - left_m - right_m  # 6.02 in = 433.27 pt
+        W, H = A4  # 595.27 x 841.89 pt
+        left_m = 1.00 * inch     # 72.0 pt (exact match to ref PDF x=72.0)
+        right_m = 0.78 * inch    # 56.16 pt -> x_right = 539.1 pt (exact match to ref PDF x=540..543)
+        top_m = 1.00 * inch      # 72.0 pt (exact match to ref PDF y=72.7)
+        bot_m = 0.95 * inch
+        usable_w = W - left_m - right_m  # ~467.1 pt = 6.49 in
 
-        def draw_cover(canvas, doc):
-            canvas._ims_state = {"mode": "prelim", "prelim_start": 1, "main_start": None, "chapter": ""}
-            canvas.saveState()
-            canvas.setStrokeColor(colors.HexColor("#0F2744"))
-            canvas.setLineWidth(2.2)
-            canvas.rect(28, 28, W - 56, H - 56)
-            canvas.setLineWidth(0.7)
-            canvas.rect(33, 33, W - 66, H - 66)
-            canvas.restoreState()
-
-        def draw_prelim(canvas, doc):
-            canvas.saveState()
-            state = canvas._ims_state
-            pno = canvas.getPageNumber()
-            rom = to_roman(pno - state["prelim_start"] + 1)
-            canvas.setFont("TimesAcad", 10.5)
-            canvas.setFillColor(colors.HexColor("#334155"))
-            canvas.drawCentredString(W / 2, 0.62 * inch, rom)
-            canvas.restoreState()
-
-        def draw_main(canvas, doc):
-            canvas.saveState()
-            state = canvas._ims_state
-            if state["main_start"] is None:
-                state["main_start"] = canvas.getPageNumber()
-            arab = canvas.getPageNumber() - state["main_start"] + 1
-            # Header
-            canvas.setStrokeColor(colors.HexColor("#CBD5E1"))
-            canvas.setLineWidth(0.6)
-            canvas.line(left_m, H - 0.72 * inch, W - right_m, H - 0.72 * inch)
-            canvas.setFont("TimesAcad-Italic", 9.2)
-            canvas.setFillColor(colors.HexColor("#475569"))
-            canvas.drawString(left_m, H - 0.64 * inch, self.short_title)
-            canvas.drawRightString(W - right_m, H - 0.64 * inch, state.get("chapter", ""))
-            # Footer
-            canvas.line(left_m, 0.75 * inch, W - right_m, 0.75 * inch)
-            canvas.setFont("TimesAcad", 10.5)
-            canvas.setFillColor(colors.HexColor("#0F172A"))
-            canvas.drawCentredString(W / 2, 0.54 * inch, f"Page {arab}")
-            canvas.restoreState()
-
-        frame = Frame(left_m, bot_m, usable_w, H - top_m - bot_m, id="normal",
-                      leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+        frame = Frame(
+            left_m, bot_m, usable_w, H - top_m - bot_m,
+            id="main_frame", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0
+        )
         doc = BaseDocTemplate(
             pdf_path, pagesize=A4,
             leftMargin=left_m, rightMargin=right_m, topMargin=top_m, bottomMargin=bot_m,
             title=self.project_title, author=self.student_name
         )
-        doc.addPageTemplates([
-            PageTemplate(id="Cover", frames=[Frame(0.9 * inch, 0.75 * inch, W - 1.8 * inch, H - 1.5 * inch, id="cov")], onPage=draw_cover),
-            PageTemplate(id="Prelim", frames=[frame], onPageEnd=draw_prelim),
-            PageTemplate(id="Main", frames=[frame], onPageEnd=draw_main),
-        ])
+        # Plain white pages — NO borders, NO headers, NO footers (exact match to ref PDF!)
+        doc.addPageTemplates([PageTemplate(id="PlainSRM", frames=[frame])])
 
-        # Styles
-        s_body = ParagraphStyle("Body", fontName="TimesAcad", fontSize=12, leading=18, alignment=TA_JUSTIFY, spaceAfter=7, textColor=colors.HexColor("#111827"))
-        s_center = ParagraphStyle("Center", parent=s_body, alignment=TA_CENTER)
-        s_right = ParagraphStyle("Right", parent=s_body, alignment=TA_RIGHT)
-        s_bullet = ParagraphStyle("Bullet", parent=s_body, leftIndent=18, firstLineIndent=-10, spaceAfter=5)
-        s_chap_no = ParagraphStyle("ChapNo", fontName="TimesAcad-Bold", fontSize=14, leading=18, alignment=TA_CENTER, spaceAfter=4, textColor=colors.HexColor("#1E3A8A"))
-        s_chap_ti = ParagraphStyle("ChapTi", fontName="TimesAcad-Bold", fontSize=16, leading=22, alignment=TA_CENTER, spaceAfter=16, textColor=colors.HexColor("#0F2744"))
-        s_prelim_h = ParagraphStyle("PrelimH", fontName="TimesAcad-Bold", fontSize=15, leading=20, alignment=TA_CENTER, spaceAfter=16, textColor=colors.HexColor("#0F2744"))
-        s_h2 = ParagraphStyle("H2", fontName="TimesAcad-Bold", fontSize=13.5, leading=18, spaceBefore=13, spaceAfter=6, keepWithNext=True, textColor=colors.HexColor("#0F2744"))
-        s_h3 = ParagraphStyle("H3", fontName="TimesAcad-Bold", fontSize=12, leading=16.5, spaceBefore=10, spaceAfter=4, keepWithNext=True, textColor=colors.HexColor("#1E3A8A"))
-        s_cap = ParagraphStyle("Cap", fontName="TimesAcad-BoldItalic", fontSize=10.2, leading=14, alignment=TA_CENTER, spaceBefore=4, spaceAfter=10, textColor=colors.HexColor("#334155"))
-        s_tbl_cap = ParagraphStyle("TblCap", fontName="TimesAcad-Bold", fontSize=10.5, leading=14, alignment=TA_LEFT, spaceBefore=8, spaceAfter=4, keepWithNext=True, textColor=colors.HexColor("#0F2744"))
-        s_code_ti = ParagraphStyle("CodeTi", fontName="TimesAcad-Bold", fontSize=10, leading=13, spaceBefore=8, spaceAfter=3, keepWithNext=True, textColor=colors.HexColor("#1E3A8A"))
-        s_code = ParagraphStyle("Code", fontName="MonoCode", fontSize=7.8, leading=10.4, textColor=colors.HexColor("#0F172A"))
-        s_th = ParagraphStyle("TH", fontName="TimesAcad-Bold", fontSize=9.5, leading=12.5, alignment=TA_LEFT, textColor=colors.white)
-        s_td = ParagraphStyle("TD", fontName="TimesAcad", fontSize=9.3, leading=12.5, alignment=TA_LEFT, textColor=colors.HexColor("#0F172A"))
+        # Exact Typography Styles from PyMuPDF inspection of DC2332306010017 PDF
+        s_body14 = ParagraphStyle(
+            "Body14", fontName="Times-Roman", fontSize=14, leading=24,
+            alignment=TA_JUSTIFY, spaceAfter=10, textColor=colors.black
+        )
+        s_body14_indent = ParagraphStyle(
+            "Body14Ind", parent=s_body14, firstLineIndent=36
+        )
+        s_chap = ParagraphStyle(
+            "Chap", fontName="Times-Bold", fontSize=14, leading=20,
+            alignment=TA_CENTER, spaceBefore=0, spaceAfter=18, textColor=colors.black
+        )
+        s_sec = ParagraphStyle(
+            "Sec", fontName="Times-Bold", fontSize=14, leading=20,
+            alignment=TA_LEFT, spaceBefore=12, spaceAfter=12, keepWithNext=True, textColor=colors.black
+        )
+        s_sub = ParagraphStyle(
+            "Sub", fontName="Times-Bold", fontSize=14, leading=20,
+            alignment=TA_LEFT, spaceBefore=12, spaceAfter=8, keepWithNext=True, textColor=colors.black
+        )
+        s_bullet = ParagraphStyle(
+            "SqBullet", fontName="Times-Roman", fontSize=14, leading=24,
+            alignment=TA_JUSTIFY, leftIndent=32, firstLineIndent=-18, spaceAfter=6, textColor=colors.black
+        )
+        s_numitem = ParagraphStyle(
+            "NumItem", fontName="Times-Roman", fontSize=14, leading=24,
+            alignment=TA_LEFT, leftIndent=36, firstLineIndent=-18, spaceAfter=4, textColor=colors.black
+        )
+        s_lit_lbl = ParagraphStyle(
+            "LitLbl", fontName="Times-Roman", fontSize=14, leading=22,
+            alignment=TA_LEFT, spaceAfter=12, textColor=colors.black
+        )
+        s_code_hdr = ParagraphStyle(
+            "CodeHdr", fontName="Times-Bold", fontSize=13.5, leading=20,
+            alignment=TA_LEFT, spaceBefore=14, spaceAfter=10, keepWithNext=True, textColor=colors.black
+        )
+        s_code_ln = ParagraphStyle(
+            "CodeLn", fontName="Times-Roman", fontSize=11.5, leading=18.5,
+            alignment=TA_LEFT, spaceAfter=2, textColor=colors.black
+        )
+        s_shot_cap = ParagraphStyle(
+            "ShotCap", fontName="Times-Bold", fontSize=12, leading=16,
+            alignment=TA_CENTER, spaceBefore=4, spaceAfter=14, textColor=colors.black
+        )
+        s_th = ParagraphStyle(
+            "TH", fontName="Times-Bold", fontSize=11.0, leading=14.5,
+            alignment=TA_LEFT, textColor=colors.black
+        )
+        s_td = ParagraphStyle(
+            "TD", fontName="Times-Roman", fontSize=10.5, leading=14.0,
+            alignment=TA_LEFT, textColor=colors.black
+        )
 
         story = []
 
-        # ---- 1. COVER / TITLE PAGE (SRMIST BCA Format) ----
-        story.append(Spacer(1, 10))
-        story.append(Paragraph(html.escape(self.project_title),
-                               ParagraphStyle("CovTitle", fontName="TimesAcad-Bold", fontSize=15.5, leading=21, alignment=TA_CENTER, spaceAfter=18)))
-        story.append(Paragraph("A PROJECT REPORT SUBMITTED TO",
-                               ParagraphStyle("CovSub1", fontName="TimesAcad-Bold", fontSize=12, leading=16, alignment=TA_CENTER, spaceAfter=8)))
-        story.append(Paragraph("SRM INSTITUTE OF SCIENCE AND TECHNOLOGY",
-                               ParagraphStyle("CovSub2", fontName="TimesAcad-Bold", fontSize=13, leading=17, alignment=TA_CENTER, spaceAfter=14)))
-        story.append(Paragraph("IN PARTIAL FULFILLMENT OF THE REQUIREMENTS FOR THE<br/>AWARD OF THE DEGREE OF",
-                               ParagraphStyle("CovSub3", fontName="TimesAcad-Bold", fontSize=12, leading=17, alignment=TA_CENTER, spaceAfter=14)))
-        story.append(Paragraph(html.escape(self.degree_title),
-                               ParagraphStyle("CovDeg", fontName="TimesAcad-Bold", fontSize=15.5, leading=20, alignment=TA_CENTER, spaceAfter=14)))
-        story.append(Paragraph("BY",
-                               ParagraphStyle("CovBy", fontName="TimesAcad-Bold", fontSize=12, leading=16, alignment=TA_CENTER, spaceAfter=8)))
-        story.append(Paragraph(html.escape(self.student_name),
-                               ParagraphStyle("CovStu", fontName="TimesAcad-Bold", fontSize=14, leading=18, alignment=TA_CENTER, spaceAfter=4)))
-        story.append(Paragraph(f"REG. NO. {html.escape(self.reg_no)}",
-                               ParagraphStyle("CovReg", fontName="TimesAcad-Bold", fontSize=12.5, leading=17, alignment=TA_CENTER, spaceAfter=16)))
-        story.append(Paragraph("UNDER THE GUIDANCE OF",
-                               ParagraphStyle("CovUg", fontName="TimesAcad-Bold", fontSize=12, leading=16, alignment=TA_CENTER, spaceAfter=8)))
-        story.append(Paragraph(html.escape(self.guide_name),
-                               ParagraphStyle("CovGn", fontName="TimesAcad-Bold", fontSize=12.5, leading=16, alignment=TA_CENTER, spaceAfter=3)))
-        story.append(Paragraph(html.escape(self.guide_title),
-                               ParagraphStyle("CovGt", fontName="TimesAcad-Bold", fontSize=11.5, leading=15, alignment=TA_CENTER, spaceAfter=12)))
-        if os.path.exists(self.srm_logo_path):
+        # ==============================================================
+        # PAGE 1: TITLE PAGE (Exact match to ref_001.png)
+        # ==============================================================
+        story.append(Spacer(1, 6))
+        story.append(Paragraph(
+            html.escape(self.project_title),
+            ParagraphStyle("TP_Title", fontName="Times-Bold", fontSize=16, leading=22, alignment=TA_CENTER, spaceAfter=18)
+        ))
+        story.append(Paragraph(
+            "A PROJECT REPORT SUBMITTED TO",
+            ParagraphStyle("TP_1", fontName="Times-Roman", fontSize=14, leading=19, alignment=TA_CENTER, spaceAfter=14)
+        ))
+        story.append(Paragraph(
+            "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY",
+            ParagraphStyle("TP_2", fontName="Times-Roman", fontSize=14, leading=19, alignment=TA_CENTER, spaceAfter=14)
+        ))
+        story.append(Paragraph(
+            "IN PARTIAL FULFILLMENT OF THE REQUIREMENTS FOR THE<br/>AWARD OF THE DEGREE OF",
+            ParagraphStyle("TP_3", fontName="Times-Roman", fontSize=14, leading=22, alignment=TA_CENTER, spaceAfter=16)
+        ))
+        story.append(Paragraph(
+            html.escape(self.degree_title),
+            ParagraphStyle("TP_Deg", fontName="Times-Bold", fontSize=16, leading=21, alignment=TA_CENTER, spaceAfter=16)
+        ))
+        story.append(Paragraph(
+            "BY",
+            ParagraphStyle("TP_By", fontName="Times-Bold", fontSize=16, leading=20, alignment=TA_CENTER, spaceAfter=16)
+        ))
+        story.append(Paragraph(
+            html.escape(self.student_name),
+            ParagraphStyle("TP_Stu", fontName="Times-Roman", fontSize=12, leading=16, alignment=TA_CENTER, spaceAfter=12)
+        ))
+        story.append(Paragraph(
+            f"REG. NO. {html.escape(self.reg_no)}",
+            ParagraphStyle("TP_Reg", fontName="Times-Roman", fontSize=12, leading=16, alignment=TA_CENTER, spaceAfter=16)
+        ))
+        story.append(Paragraph(
+            "UNDER THE GUIDANCE OF",
+            ParagraphStyle("TP_UG", fontName="Times-Bold", fontSize=12, leading=16, alignment=TA_CENTER, spaceAfter=12)
+        ))
+        story.append(Paragraph(
+            html.escape(self.guide_upper),
+            ParagraphStyle("TP_Gn", fontName="Times-Bold", fontSize=12, leading=16, alignment=TA_CENTER, spaceAfter=12)
+        ))
+        story.append(Paragraph(
+            "ASSISTANT PROFESSOR,",
+            ParagraphStyle("TP_Gt", fontName="Times-Bold", fontSize=12, leading=16, alignment=TA_CENTER, spaceAfter=12)
+        ))
+        if self.srm_logo_path and os.path.exists(self.srm_logo_path):
             im = PILImage.open(self.srm_logo_path)
             iw, ih = im.size
-            w_pt = 2.45 * inch
-            h_pt = w_pt * (ih / iw)
-            logo = RLImage(self.srm_logo_path, width=w_pt, height=h_pt)
+            lw = 2.62 * inch
+            lh = lw * (ih / iw)
+            logo = RLImage(self.srm_logo_path, width=lw, height=lh)
             logo.hAlign = "CENTER"
             story.append(logo)
-            story.append(Spacer(1, 12))
-        for ln in [self.dept_line1, self.dept_line2,
-                   "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY",
-                   "(Deemed to be university u/s 3 of UGC Act, 1956)",
-                   "Kattankulathur – 603 203",
-                   "Chennai, Tamilnadu",
-                   self.month_year]:
-            story.append(Paragraph(html.escape(ln),
-                                   ParagraphStyle("CovBot", fontName="TimesAcad-Bold", fontSize=12, leading=16.5, alignment=TA_CENTER)))
-
-        story.append(NextPageTemplate("Prelim"))
+            story.append(Spacer(1, 14))
+        for footer_ln in [
+            "DEPARTMENT OF COMPUTER APPLICATIONS",
+            "DIRECTORATE OF DISTANCE EDUCATION",
+            "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY",
+            "(Deemed to be university u/s 3 of UGC Act, 1956)",
+            "Kattankulathur – 603 203",
+            "Chennai, Tamilnadu",
+            self.month_year,
+        ]:
+            story.append(Paragraph(
+                html.escape(footer_ln),
+                ParagraphStyle("TP_Bot", fontName="Times-Bold", fontSize=12, leading=18.5, alignment=TA_CENTER, spaceAfter=2)
+            ))
         story.append(PageBreak())
 
-        # ---- 2. BONAFIDE CERTIFICATE ----
-        bon_key = "prelim_bonafide"
-        story.append(BookmarkFlowable(bon_key, tracker))
-        story.append(Paragraph("BONAFIDE CERTIFICATE", s_prelim_h))
-        story.append(Spacer(1, 10))
-        bon_txt = (
-            f'This is to certify that the project report titled <b>“{html.escape(self.project_title)}”</b> '
-            f'is a bonafide work carried out by <b>{html.escape(self.student_name)} ({html.escape(self.reg_no)})</b> '
-            f'under my supervision for the award of the Degree of <b>{html.escape(self.degree_title.title())}</b>. '
-            f'To my knowledge the work reported herein is the original work done by the candidate.'
+        # ==============================================================
+        # PAGE 2: BONAFIDE CERTIFICATE (Exact match to ref_002.png)
+        # ==============================================================
+        story.append(Spacer(1, 8))
+        story.append(Paragraph(
+            "BONAFIDE CERTIFICATE",
+            ParagraphStyle("BC_H", fontName="Times-Bold", fontSize=14, leading=20, alignment=TA_CENTER, spaceAfter=26)
+        ))
+        bon_body = (
+            f"This is to certify that the project report titled "
+            f"<b>“{html.escape(self.project_title)}”</b> is a bonafide work carried out by "
+            f"<b>{html.escape(self.student_name)}</b> (<b>{html.escape(self.reg_no)}</b>) under my "
+            f"supervision for the award of the Degree of Bachelor of Computer Applications. "
+            f"To my knowledge the work reported herein is the original work done by the candidate."
         )
-        story.append(Paragraph(bon_txt, ParagraphStyle("BonBody", parent=s_body, fontSize=12.5, leading=21, spaceAfter=48)))
-
-        sig_style = ParagraphStyle("Sig", fontName="TimesAcad", fontSize=11.5, leading=16)
-        sig_bold = ParagraphStyle("SigB", fontName="TimesAcad-Bold", fontSize=11.5, leading=16)
-        sig_tbl = Table([
-            [Paragraph("<b>PROJECT GUIDE</b>", sig_bold), Paragraph("<b>HEAD OF DEPARTMENT</b>", sig_bold)],
-            [Spacer(1, 28), Spacer(1, 28)],
-            [Paragraph("<b>Dr. A. Thirumurthi Raja</b><br/>Assistant Professor,<br/>SRMIST-DDE,", sig_style),
-             Paragraph("<b>Dr. A. Thirumurthi Raja</b><br/>Program Coordinator,<br/>Department of Computer Applications,<br/>Directorate of Distance Education (DDE),<br/>SRMIST,", sig_style)],
+        story.append(Paragraph(
+            bon_body,
+            ParagraphStyle("BC_P", fontName="Times-Roman", fontSize=12, leading=21, alignment=TA_JUSTIFY, firstLineIndent=28, spaceAfter=64)
+        ))
+        sig_l = ParagraphStyle("BC_SL", fontName="Times-Roman", fontSize=12, leading=22, alignment=TA_LEFT)
+        sig_r = ParagraphStyle("BC_SR", fontName="Times-Roman", fontSize=12, leading=22, alignment=TA_CENTER)
+        bon_tbl = Table([
+            [
+                Paragraph(
+                    f"<b>PROJECT GUIDE</b><br/><b>{html.escape(self.guide_mixed)}</b><br/>"
+                    f"Assistant Professor,<br/>SRMIST-DDE,",
+                    sig_l
+                ),
+                Paragraph(
+                    f"<b>HEAD OF DEPARTMENT</b><br/><b>{html.escape(self.guide_mixed)}</b><br/>"
+                    f"Program Coordinator<br/>Department of Computer Applications,<br/>"
+                    f"Directorate of Distance Education (DDE)<br/><b>SRMIST,</b>",
+                    sig_r
+                ),
+            ],
             [Spacer(1, 56), Spacer(1, 56)],
-            [Paragraph("<b>INTERNAL EXAMINER</b>", sig_bold), Paragraph("<b>EXTERNAL EXAMINER</b>", sig_bold)],
-        ], colWidths=[usable_w * 0.48, usable_w * 0.52])
-        sig_tbl.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
-        story.append(sig_tbl)
+            [
+                Paragraph("<b>INTERNAL EXAMINER</b>", sig_l),
+                Paragraph("<b>EXTERNAL EXAMINER</b>", sig_r),
+            ],
+        ], colWidths=[usable_w * 0.46, usable_w * 0.54])
+        bon_tbl.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(bon_tbl)
         story.append(PageBreak())
 
-        # ---- 3. DECLARATION ----
-        dec_key = "prelim_declaration"
-        story.append(BookmarkFlowable(dec_key, tracker))
-        story.append(Paragraph("DECLARATION", s_prelim_h))
-        story.append(Spacer(1, 10))
-        dec_txt = (
-            f'I, <b>{html.escape(self.student_name)} ({html.escape(self.reg_no)})</b>, hereby declare that the project report entitled '
-            f'<b>“{html.escape(self.project_title)}”</b> submitted to <b>SRM Institute of Science and Technology</b> '
-            f'in partial fulfillment of the requirements for the award of the Degree of '
-            f'<b>{html.escape(self.degree_title.title())}</b> is a record of original software engineering and academic project work '
-            f'carried out by me under the supervision and guidance of <b>Dr. A. Thirumurthi Raja, M.C.A., M.E., Ph.D.</b>, '
-            f'Assistant Professor, Department of Computer Applications, Directorate of Distance Education, SRMIST. '
-            f'I further declare that this project report or any part thereof has not been submitted earlier to any other '
-            f'University or Institution for the award of any degree, diploma, or fellowship.'
+        # ==============================================================
+        # PAGE 3: ACKNOWLEDGEMENT (Exact match to ref_003.png)
+        # ==============================================================
+        story.append(Spacer(1, 8))
+        story.append(Paragraph(
+            "ACKNOWLEDGEMENT",
+            ParagraphStyle("ACK_H", fontName="Times-Bold", fontSize=14, leading=20, alignment=TA_CENTER, spaceAfter=20)
+        ))
+        ack_style = ParagraphStyle(
+            "ACK_P", fontName="Times-Roman", fontSize=12, leading=21,
+            alignment=TA_JUSTIFY, firstLineIndent=32, spaceAfter=14
         )
-        story.append(Paragraph(dec_txt, ParagraphStyle("DecBody", parent=s_body, fontSize=12.5, leading=21, spaceAfter=64)))
-        dec_tbl = Table([
-            [Paragraph("Place: Chennai<br/>Date: November 2026", sig_style),
-             Paragraph(f"<b>{html.escape(self.student_name)}</b><br/>({html.escape(self.reg_no)})<br/>Signature of the Candidate",
-                       ParagraphStyle("SigR", parent=sig_style, alignment=TA_RIGHT))]
-        ], colWidths=[usable_w * 0.5, usable_w * 0.5])
-        story.append(dec_tbl)
+        ack_noind = ParagraphStyle("ACK_P0", parent=ack_style, firstLineIndent=0)
+        story.append(Paragraph(
+            "With profound gratitude to the ALMIGHTY, I take this chance to thank the people who "
+            "helped me to complete this project.",
+            ack_style
+        ))
+        story.append(Paragraph(
+            "I take this as a right opportunity to say THANKS to my parents who are there to stand "
+            "with me always with the words “ANYTHING IS ACHIEVABLE WITH HARDWORK AND PERSISTENCE”.",
+            ack_noind
+        ))
+        story.append(Paragraph(
+            "I am thankful to <b>Dr.T.R. Paarivendhar, Chancellor</b>, SRM Institute of Science &amp; "
+            "Technology who gave us the platform to establish ourselves and reach greater heights.",
+            ack_style
+        ))
+        story.append(Paragraph(
+            "I express my deep sense of gratitude to the Director, Directorate of Distance Education, "
+            "SRM Institute of Science &amp; Technology for their wholehearted support and encouragement.",
+            ack_style
+        ))
+        story.append(Paragraph(
+            f"With gratitude I like to thank my project guide <b>{html.escape(self.guide_mixed)}</b>, "
+            "Assistant Professor, Department of Computer Applications (DDE), for his help, support, "
+            "encouragement, suggestions, and guidance throughout the development phases of the project.",
+            ack_style
+        ))
+        story.append(Paragraph(
+            "I take this opportunity to extend my sincere gratitude to all the faculty members of the "
+            "department who provided their support through valuable comments and suggestions during the reviews.",
+            ack_style
+        ))
+        story.append(Paragraph(
+            "A great note of gratitude to friends and colleagues who helped in carrying out this "
+            "project work to a successful completion.",
+            ack_style
+        ))
+        story.append(Spacer(1, 36))
+        story.append(Paragraph(
+            f"<b>{html.escape(self.student_name.title())}</b>",
+            ParagraphStyle("ACK_Sig", fontName="Times-Bold", fontSize=12, leading=18, alignment=TA_RIGHT)
+        ))
         story.append(PageBreak())
 
-        # ---- 4. ACKNOWLEDGEMENT ----
-        ack_key = "prelim_ack"
-        story.append(BookmarkFlowable(ack_key, tracker))
-        story.append(Paragraph("ACKNOWLEDGEMENT", s_prelim_h))
-        ack_paras = [
-            "With profound gratitude to the ALMIGHTY, I take this chance to thank the people who helped me to complete this project.",
-            "I take this as a right opportunity to say THANKS to my parents who are there to stand with me always with the words “YOU CAN”.",
-            "I am thankful to <b>Dr. T. R. Paarivendhar, Chancellor</b>, SRM Institute of Science &amp; Technology who gave us the platform to establish ourselves and reach greater heights.",
-            "I express my deep sense of gratitude to the Director <b>Dr. Manoranjan Pon Ram</b> for his wholehearted support and encouragement.",
-            "I earnestly thank <b>Dr. A. Thirumurthi Raja, Programme Coordinator</b>, BCA/MCA — Directorate of Distance Education, SRM Institute of Science &amp; Technology who always encourages us to pursue novel engineering solutions.",
-            "It is my delight to thank my project guide <b>Dr. A. Thirumurthi Raja</b>, Assistant Professor, Department of Computer Applications (DDE), for his invaluable help, technical insights, encouragement, constructive suggestions, and continuous guidance throughout the analysis, design, and implementation phases of this project.",
-            "I convey my sincere gratitude to all the faculty members of the Department of Computer Applications who extended their support through valuable comments and suggestions during the project reviews.",
-            "A great note of gratitude to my friends and colleagues who helped in carrying out this project work to a successful completion."
-        ]
-        for ap in ack_paras:
-            story.append(Paragraph(ap, ParagraphStyle("AckP", parent=s_body, spaceAfter=10)))
-        story.append(Spacer(1, 24))
-        story.append(Paragraph(f"<b>{html.escape(self.student_name)}</b>", s_right))
+        # ==============================================================
+        # PAGES 4+: TABLE OF CONTENTS (Exact match to ref_004.png & ref_005.png)
+        # ==============================================================
+        story.append(Paragraph(
+            "TABLE OF CONTENTS",
+            ParagraphStyle("TOC_H", fontName="Times-Roman", fontSize=14, leading=20, alignment=TA_CENTER, spaceAfter=18)
+        ))
+        for item in self.toc_entries:
+            pg = page_map.get(item["key"], "7") if (item["show_page"] and item["key"]) else None
+            story.append(DottedTocLineFlowable(
+                label=item["label"],
+                page_str=pg,
+                width=usable_w,
+                indent=item["indent"],
+                font_name="Times-Roman",
+                font_size=13.5,
+                line_height=26.5,
+            ))
         story.append(PageBreak())
 
-        def make_rl_table(headers, rows, col_widths):
+        # ==============================================================
+        # ABSTRACT PAGE (Exact match to ref_006.png — right after TOC!)
+        # ==============================================================
+        story.append(Paragraph(
+            html.escape(self.abstract_heading_title),
+            ParagraphStyle("ABS_Title", fontName="Times-Bold", fontSize=14, leading=20, alignment=TA_CENTER, spaceAfter=18)
+        ))
+        story.append(Paragraph(
+            "Abstract:",
+            ParagraphStyle("ABS_Lbl", fontName="Times-Bold", fontSize=14, leading=20, alignment=TA_LEFT, spaceAfter=12)
+        ))
+        for ap in self.abstract_paras:
+            story.append(Paragraph(html.escape(ap), s_body14_indent))
+
+        # ==============================================================
+        # CHAPTERS 1..6 BODY (Exact match to ref_007.png .. ref_081.png)
+        # ==============================================================
+        def make_clean_bw_table(headers, rows, col_widths):
             if col_widths:
-                total_in = sum(col_widths)
-                widths = [usable_w * (w / total_in) for w in col_widths]
+                tot = sum(col_widths)
+                cw = [(w / tot) * usable_w for w in col_widths]
             else:
-                widths = [usable_w / len(headers)] * len(headers)
+                cw = [usable_w / len(headers)] * len(headers)
             data = [[Paragraph(html.escape(str(h)), s_th) for h in headers]]
             for r in rows:
-                data.append([Paragraph(html.escape(str(c)).replace("\n", "<br/>"), s_td) for c in r])
-            t = Table(data, colWidths=widths, repeatRows=1)
-            style_cmds = [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F2744")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                data.append([Paragraph(html.escape(str(v)).replace("\n", "<br/>"), s_td) for v in r])
+            t = Table(data, colWidths=cw, repeatRows=1)
+            t.setStyle(TableStyle([
+                ("GRID", (0, 0), (-1, -1), 0.6, colors.black),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#CBD5E1")),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
                 ("TOPPADDING", (0, 0), (-1, -1), 5),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ]
-            for r_i in range(1, len(data)):
-                if r_i % 2 == 0:
-                    style_cmds.append(("BACKGROUND", (0, r_i), (-1, r_i), colors.HexColor("#F8FAFC")))
-            t.setStyle(TableStyle(style_cmds))
-            return t
-
-        def make_leader_table(entries):
-            rows_data = []
-            for lvl, label, pg in entries:
-                indent = 0 if lvl == 0 else (12 if lvl == 1 else 26)
-                fnt = "TimesAcad-Bold" if lvl == 0 else "TimesAcad"
-                sz = 11.2 if lvl == 0 else (10.6 if lvl == 1 else 10.0)
-                st_l = ParagraphStyle(f"TL_{lvl}", fontName=fnt, fontSize=sz, leading=14.5, leftIndent=indent,
-                                      textColor=colors.HexColor("#0F2744" if lvl == 0 else "#1E293B"))
-                st_r = ParagraphStyle(f"TR_{lvl}", fontName=fnt, fontSize=sz, leading=14.5, alignment=TA_RIGHT,
-                                      textColor=colors.HexColor("#0F2744" if lvl == 0 else "#1E293B"))
-                rows_data.append([Paragraph(html.escape(label), st_l), Paragraph(html.escape(str(pg)), st_r)])
-            t = Table(rows_data, colWidths=[usable_w - 48, 48])
-            t.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
-                ("LINEBELOW", (0, 0), (-1, -1), 0.35, colors.HexColor("#E2E8F0")),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
             ]))
             return t
 
-        # ---- 5. DYNAMIC PRELIMINARY BLOCKS (Abstract, TOC, LOF, LOT, Abbreviations) ----
-        fixed_prelim = [
-            (1, "Title Page", "i"),
-            (1, "Bonafide Certificate", page_map.get(bon_key, "ii")),
-            (1, "Declaration", page_map.get(dec_key, "iii")),
-            (1, "Acknowledgement", page_map.get(ack_key, "iv")),
-        ]
-
-        for blk in self.prelim_blocks:
-            kind = blk[0]
-            if kind == "prelim_h1":
-                _, key, title = blk
-                story.append(BookmarkFlowable(key, tracker))
-                story.append(Paragraph(html.escape(title), s_prelim_h))
-            elif kind == "p":
-                _, text, bp, align, sa = blk
-                st = s_center if align == "center" else (s_right if align == "right" else s_body)
-                if sa != 7:
-                    st = ParagraphStyle("TmpP", parent=st, spaceAfter=sa)
-                full = f"<b>{html.escape(bp)}</b> {html.escape(text)}" if bp else html.escape(text)
-                story.append(Paragraph(full, st))
-            elif kind == "raw_table":
-                _, headers, rows, cw = blk
-                story.append(make_rl_table(headers, rows, cw))
-                story.append(Spacer(1, 8))
-            elif kind == "page_break":
-                story.append(PageBreak())
-            elif kind == "toc_placeholder":
-                _, key = blk
-                story.append(BookmarkFlowable(key, tracker))
-                story.append(Paragraph("TABLE OF CONTENTS", s_prelim_h))
-                all_toc = list(fixed_prelim)
-                for lvl, tkey, tlabel in self.toc_entries:
-                    all_toc.append((lvl, tlabel, page_map.get(tkey, "1")))
-                story.append(make_leader_table(all_toc))
-                story.append(PageBreak())
-            elif kind == "lof_placeholder":
-                _, key = blk
-                story.append(BookmarkFlowable(key, tracker))
-                story.append(Paragraph("LIST OF FIGURES", s_prelim_h))
-                lof_rows = [(1, f"Figure {fn}: {cap}", page_map.get(fkey, "1")) for fkey, fn, cap in self.lof_entries]
-                story.append(make_leader_table(lof_rows))
-                story.append(PageBreak())
-            elif kind == "lot_placeholder":
-                _, key = blk
-                story.append(BookmarkFlowable(key, tracker))
-                story.append(Paragraph("LIST OF TABLES", s_prelim_h))
-                lot_rows = [(1, f"Table {tn}: {cap}", page_map.get(tkey, "1")) for tkey, tn, cap in self.lot_entries]
-                story.append(make_leader_table(lot_rows))
-
-        # ---- 6. SWITCH TO MAIN BODY (Arabic Page 1+) ----
-        story.append(NextPageTemplate("Main"))
-        story.append(PageBreak())
-        story.append(ModeSwitchFlowable("main"))
-
-        first_chapter = True
         for blk in self.body_blocks:
-            kind = blk[0]
-            if kind == "chapter":
-                _, key, chap_num, chap_title, running = blk
-                if not first_chapter:
+            btype = blk[0]
+
+            if btype == "chapter":
+                _, chap_num, subtitle = blk
+                story.append(PageBreak())
+                chap_txt = f"CHAPTER {chap_num}" if chap_num != 6 else "CHAPTER 6"
+                story.append(Paragraph(chap_txt, s_chap))
+                if subtitle:
+                    story.append(Paragraph(html.escape(subtitle), s_chap))
+
+            elif btype == "section":
+                _, key, disp, new_page, render_heading = blk
+                if new_page:
                     story.append(PageBreak())
-                first_chapter = False
-                story.append(BookmarkFlowable(key, tracker, chapter_title=running))
-                if chap_num is not None:
-                    story.append(Paragraph(f"CHAPTER {chap_num}", s_chap_no))
-                story.append(Paragraph(html.escape(chap_title), s_chap_ti))
-                story.append(Spacer(1, 4))
-            elif kind == "h2":
-                _, key, label = blk
-                story.append(BookmarkFlowable(key, tracker))
-                story.append(Paragraph(html.escape(label), s_h2))
-            elif kind == "h3":
-                _, key, label = blk
-                story.append(BookmarkFlowable(key, tracker))
-                story.append(Paragraph(html.escape(label), s_h3))
-            elif kind == "p":
-                _, text, bp, align, sa = blk
-                st = s_body if sa == 7 else ParagraphStyle("BodySA", parent=s_body, spaceAfter=sa)
+                story.append(BookmarkTrackerFlowable(key, tracker))
+                if render_heading:
+                    story.append(Paragraph(html.escape(disp), s_sec))
+
+            elif btype == "subheading":
+                _, text, sb, sa = blk
+                st = ParagraphStyle("SubCustom", parent=s_sub, spaceBefore=sb, spaceAfter=sa)
+                story.append(Paragraph(html.escape(text), st))
+
+            elif btype == "p":
+                _, text, bp, first_ind, sa = blk
+                st = s_body14 if (first_ind == 0 and sa == 10) else ParagraphStyle(
+                    "BodyCustom", parent=s_body14, firstLineIndent=first_ind, spaceAfter=sa
+                )
                 full = f"<b>{html.escape(bp)}</b> {html.escape(text)}" if bp else html.escape(text)
                 story.append(Paragraph(full, st))
-            elif kind == "bullet":
-                _, bp, text = blk
-                full = f"• <b>{html.escape(bp)}</b> {html.escape(text)}" if bp else f"• {html.escape(text)}"
+
+            elif btype == "bullet":
+                _, text, bp = blk
+                full = f'<font name="SymSerif" size="11">▪</font>  <b>{html.escape(bp)}</b> {html.escape(text)}' if bp else f'<font name="SymSerif" size="11">▪</font>  {html.escape(text)}'
                 story.append(Paragraph(full, s_bullet))
-            elif kind == "table":
-                _, key, tbl_num, caption, headers, rows, cw = blk
-                story.append(BookmarkFlowable(key, tracker))
-                story.append(Paragraph(f"Table {html.escape(tbl_num)}: {html.escape(caption)}", s_tbl_cap))
-                story.append(make_rl_table(headers, rows, cw))
+
+            elif btype == "numlist":
+                _, items = blk
+                for idx, it in enumerate(items, 1):
+                    story.append(Paragraph(f"{idx}.  {html.escape(it)}", s_numitem))
                 story.append(Spacer(1, 8))
-            elif kind == "figure":
-                _, key, fig_num, caption, img_path, width_in = blk
+
+            elif btype == "colon_specs":
+                _, pairs = blk
+                rows_sp = []
+                st_sp = ParagraphStyle("SpecP", fontName="Times-Roman", fontSize=14, leading=19, textColor=colors.black)
+                for lbl, val in pairs:
+                    rows_sp.append([
+                        Paragraph(f'<font name="SymSerif" size="11">▪</font>   {html.escape(lbl)}', st_sp),
+                        Paragraph(":", st_sp),
+                        Paragraph(html.escape(val), st_sp),
+                    ])
+                t_sp = Table(rows_sp, colWidths=[usable_w * 0.36, usable_w * 0.04, usable_w * 0.60])
+                t_sp.setStyle(TableStyle([
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                    ("TOPPADDING", (0, 0), (-1, -1), 1),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+                ]))
+                story.append(t_sp)
+                story.append(Spacer(1, 10))
+
+            elif btype == "diagram_inline":
+                _, img_path, width_in, max_h_in = blk
                 if os.path.exists(img_path):
                     im = PILImage.open(img_path)
                     iw, ih = im.size
                     w_pt = min(width_in * inch, usable_w)
                     h_pt = w_pt * (ih / iw)
-                    max_h = 6.2 * inch
+                    max_h = max_h_in * inch
                     if h_pt > max_h:
                         h_pt = max_h
                         w_pt = h_pt * (iw / ih)
                     rl_im = RLImage(img_path, width=w_pt, height=h_pt)
                     rl_im.hAlign = "CENTER"
-                    fig_flowable = rl_im
-                    if os.path.basename(img_path).startswith("real_"):
-                        ft = Table([[rl_im]], colWidths=[w_pt + 4])
+                    story.append(rl_im)
+
+            elif btype == "diagram_page":
+                _, key, disp, img_path, width_in, max_h_in = blk
+                story.append(PageBreak())
+                story.append(BookmarkTrackerFlowable(key, tracker))
+                story.append(Paragraph(html.escape(disp), s_sec))
+                story.append(Spacer(1, 14))
+                if os.path.exists(img_path):
+                    im = PILImage.open(img_path)
+                    iw, ih = im.size
+                    w_pt = min(width_in * inch, usable_w)
+                    h_pt = w_pt * (ih / iw)
+                    max_h = max_h_in * inch
+                    if h_pt > max_h:
+                        h_pt = max_h
+                        w_pt = h_pt * (iw / ih)
+                    rl_im = RLImage(img_path, width=w_pt, height=h_pt)
+                    rl_im.hAlign = "CENTER"
+                    story.append(rl_im)
+
+            elif btype == "lit_item":
+                _, title, year, author, abs_txt = blk
+                story.append(Paragraph(f"<b>TITLE:</b> {html.escape(title)}", s_lit_lbl))
+                story.append(Paragraph(f"<b>YEAR OF PUBLISHING:</b> {html.escape(year)}", s_lit_lbl))
+                story.append(Paragraph(f"<b>AUTHOR NAME:</b> {html.escape(author)}", s_lit_lbl))
+                story.append(Paragraph(f"<b>ABSTRACT:</b>   {html.escape(abs_txt)}", s_body14))
+                story.append(Spacer(1, 10))
+
+            elif btype == "table":
+                _, title, headers, rows, cw = blk
+                if title:
+                    story.append(Paragraph(html.escape(title), s_sub))
+                story.append(make_clean_bw_table(headers, rows, cw))
+                story.append(Spacer(1, 12))
+
+            elif btype == "screenshots":
+                _, key, heading_disp, items = blk
+                story.append(PageBreak())
+                story.append(BookmarkTrackerFlowable(key, tracker))
+                story.append(Paragraph(html.escape(heading_disp), s_sec))
+                # Render 2 crisp authentic screenshots per page (matching ref_061.png!)
+                for idx, (cap, img_path) in enumerate(items):
+                    if idx > 0 and idx % 2 == 0:
+                        story.append(PageBreak())
+                        story.append(Spacer(1, 10))
+                    if os.path.exists(img_path):
+                        im = PILImage.open(img_path)
+                        iw, ih = im.size
+                        w_pt = usable_w - 6
+                        h_pt = w_pt * (ih / iw)
+                        max_shot_h = 3.65 * inch if idx < 2 else 4.05 * inch
+                        if h_pt > max_shot_h:
+                            h_pt = max_shot_h
+                            w_pt = h_pt * (iw / ih)
+                        rl_im = RLImage(img_path, width=w_pt, height=h_pt)
+                        ft = Table([[rl_im]], colWidths=[w_pt + 2])
                         ft.hAlign = "CENTER"
                         ft.setStyle(TableStyle([
-                            ("BOX", (0, 0), (-1, -1), 0.65, colors.HexColor("#CBD5E1")),
-                            ("LEFTPADDING", (0, 0), (-1, -1), 2),
-                            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-                            ("TOPPADDING", (0, 0), (-1, -1), 2),
-                            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#94A3B8")),
+                            ("LEFTPADDING", (0, 0), (-1, -1), 1),
+                            ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+                            ("TOPPADDING", (0, 0), (-1, -1), 1),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
                         ]))
-                        fig_flowable = ft
-                    story.append(Spacer(1, 6))
-                    story.append(KeepTogether([
-                        BookmarkFlowable(key, tracker),
-                        fig_flowable,
-                        Paragraph(f"Figure {html.escape(fig_num)}: {html.escape(caption)}", s_cap)
-                    ]))
-            elif kind == "code":
-                _, title, code_text = blk
-                if title:
-                    story.append(Paragraph(html.escape(title), s_code_ti))
-                lines = code_text.strip("\n").splitlines()
-                # Chunk long code listings cleanly across pages (max 38 lines per shaded box)
-                for chunk_start in range(0, len(lines), 38):
-                    chunk = "\n".join(lines[chunk_start:chunk_start + 38])
-                    pre = Preformatted(chunk, s_code, maxLineLength=96)
-                    ct = Table([[pre]], colWidths=[usable_w])
-                    ct.setStyle(TableStyle([
-                        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
-                        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#CBD5E1")),
-                        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-                        ("TOPPADDING", (0, 0), (-1, -1), 6),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-                    ]))
-                    story.append(ct)
-                    story.append(Spacer(1, 5))
-            elif kind == "page_break":
+                        story.append(ft)
+                        story.append(Paragraph(html.escape(cap), s_shot_cap))
+                        story.append(Spacer(1, 10))
+
+            elif btype == "code_file":
+                _, filename_header, lines = blk
+                story.append(Paragraph(html.escape(filename_header), s_code_hdr))
+                for ln in lines:
+                    if not ln.strip():
+                        story.append(Spacer(1, 8))
+                    else:
+                        ind_spaces = len(ln) - len(ln.lstrip(" "))
+                        escaped = html.escape(ln.lstrip(" "))
+                        if ind_spaces > 0:
+                            escaped = ("&nbsp;" * ind_spaces) + escaped
+                        story.append(Paragraph(escaped, s_code_ln))
+                story.append(Spacer(1, 14))
+
+            elif btype == "page_break":
                 story.append(PageBreak())
 
         doc.build(story)
         return tracker
 
-    # ==========================================================================
-    # WORD (.DOCX) RENDERER (SRMIST BCA Format, Synchronized Page Numbers)
-    # ==========================================================================
+    # ==================================================================
+    # DOCX RENDERER (Synchronized SRMIST Reference Format)
+    # ==================================================================
     def _build_docx(self, docx_path, page_map):
-        doc = docx.Document()
+        doc = Document()
+        sec = doc.sections[0]
+        sec.page_width = Inches(8.27)
+        sec.page_height = Inches(11.69)
+        sec.top_margin = Inches(1.0)
+        sec.bottom_margin = Inches(0.95)
+        sec.left_margin = Inches(1.0)
+        sec.right_margin = Inches(0.78)
 
-        # Default Normal style: Times New Roman 12pt
         normal = doc.styles["Normal"]
         normal.font.name = "Times New Roman"
-        normal.font.size = Pt(12)
+        normal.font.size = Pt(14)
+        normal.font.color.rgb = RGBColor(0, 0, 0)
 
-        def setup_sec(sec, fmt="lowerRoman", start=1, border=False):
-            sec.page_width = Inches(8.27)
-            sec.page_height = Inches(11.69)
-            sec.left_margin = Inches(1.25)
-            sec.right_margin = Inches(1.00)
-            sec.top_margin = Inches(1.00)
-            sec.bottom_margin = Inches(1.00)
-            docx_set_section_pgnum(sec, fmt=fmt, start=start)
-            if border:
-                docx_set_page_border(sec)
-
-        # ---- SECTION 0: COVER PAGE ----
-        sec_cov = doc.sections[0]
-        setup_sec(sec_cov, fmt="lowerRoman", start=1, border=True)
-        sec_cov.different_first_page_header_footer = True
-
-        def cov_line(txt, sz=12, bold=True, space_after=8):
+        def add_p(text="", size=14, bold=False, align=WD_ALIGN_PARAGRAPH.JUSTIFY,
+                  line_sp=1.5, sa=10, sb=0, first_ind=0, keep_next=False, bp=None):
             p = doc.add_paragraph()
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p.paragraph_format.space_before = Pt(0)
-            p.paragraph_format.space_after = Pt(space_after)
-            p.paragraph_format.line_spacing = 1.25
-            r = p.add_run(txt)
-            r.font.name = "Times New Roman"
-            r.font.size = Pt(sz)
-            r.font.bold = bold
-
-        cov_line(self.project_title, sz=16, bold=True, space_after=14)
-        cov_line("A PROJECT REPORT SUBMITTED TO", sz=12, bold=True, space_after=6)
-        cov_line("SRM INSTITUTE OF SCIENCE AND TECHNOLOGY", sz=13, bold=True, space_after=12)
-        cov_line("IN PARTIAL FULFILLMENT OF THE REQUIREMENTS FOR THE AWARD OF THE DEGREE OF", sz=12, bold=True, space_after=12)
-        cov_line(self.degree_title, sz=16, bold=True, space_after=12)
-        cov_line("BY", sz=12, bold=True, space_after=6)
-        cov_line(self.student_name, sz=14, bold=True, space_after=3)
-        cov_line(f"REG. NO. {self.reg_no}", sz=12.5, bold=True, space_after=12)
-        cov_line("UNDER THE GUIDANCE OF", sz=12, bold=True, space_after=6)
-        cov_line(self.guide_name, sz=12.5, bold=True, space_after=2)
-        cov_line(self.guide_title, sz=11.5, bold=True, space_after=10)
-
-        if os.path.exists(self.srm_logo_path):
-            p_logo = doc.add_paragraph()
-            p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_logo.paragraph_format.space_after = Pt(10)
-            p_logo.add_run().add_picture(self.srm_logo_path, width=Inches(2.4))
-
-        for b_ln in [self.dept_line1, self.dept_line2,
-                     "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY",
-                     "(Deemed to be university u/s 3 of UGC Act, 1956)",
-                     "Kattankulathur – 603 203",
-                     "Chennai, Tamilnadu",
-                     self.month_year]:
-            cov_line(b_ln, sz=12, bold=True, space_after=3)
-
-        # ---- SECTION 1: PRELIMINARY PAGES (ii, iii, iv...) ----
-        sec_pre = doc.add_section(WD_SECTION.NEW_PAGE)
-        setup_sec(sec_pre, fmt="lowerRoman", start=2, border=False)
-        sec_pre.different_first_page_header_footer = False
-        sec_pre.header.is_linked_to_previous = False
-        sec_pre.footer.is_linked_to_previous = False
-        pf = sec_pre.footer.paragraphs[0]
-        pf.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r_pf = pf.add_run()
-        r_pf.font.name = "Times New Roman"
-        r_pf.font.size = Pt(10.5)
-        docx_add_page_number_field(r_pf)
-
-        def add_docx_prelim_title(txt):
-            p = doc.add_paragraph()
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p.paragraph_format.space_before = Pt(4)
-            p.paragraph_format.space_after = Pt(16)
-            r = p.add_run(txt)
-            r.font.name = "Times New Roman"
-            r.font.size = Pt(15)
-            r.font.bold = True
-            r.font.color.rgb = RGBColor(15, 39, 68)
-
-        def add_docx_p(txt, bp=None, align="justify", sa=7, line_sp=1.5):
-            p = doc.add_paragraph()
-            p.alignment = (WD_ALIGN_PARAGRAPH.CENTER if align == "center"
-                           else WD_ALIGN_PARAGRAPH.RIGHT if align == "right"
-                           else WD_ALIGN_PARAGRAPH.JUSTIFY)
+            p.alignment = align
             p.paragraph_format.line_spacing = line_sp
+            p.paragraph_format.space_before = Pt(sb)
             p.paragraph_format.space_after = Pt(sa)
+            p.paragraph_format.keep_with_next = keep_next
+            if first_ind:
+                p.paragraph_format.first_line_indent = Pt(first_ind)
             if bp:
                 rb = p.add_run(bp + " ")
                 rb.font.name = "Times New Roman"
-                rb.font.size = Pt(12)
+                rb.font.size = Pt(size)
                 rb.font.bold = True
-            r = p.add_run(txt)
-            r.font.name = "Times New Roman"
-            r.font.size = Pt(12)
+                rb.font.color.rgb = RGBColor(0, 0, 0)
+            if text:
+                r = p.add_run(text)
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(size)
+                r.font.bold = bold
+                r.font.color.rgb = RGBColor(0, 0, 0)
             return p
 
-        def add_docx_table(headers, rows, col_widths=None):
-            t = doc.add_table(rows=len(rows) + 1, cols=len(headers))
-            t.alignment = WD_TABLE_ALIGNMENT.CENTER
-            docx_repeat_header(t.rows[0])
-            for i, h in enumerate(headers):
-                c = t.rows[0].cells[i]
-                c.text = ""
-                docx_cell_bg(c, "0F2744")
-                docx_cell_margins(c, top=100, bottom=100, left=120, right=120)
-                docx_cell_borders(c, "0F2744", "6")
-                p = c.paragraphs[0]
-                p.paragraph_format.space_after = Pt(0)
-                r = p.add_run(str(h))
-                r.font.name = "Times New Roman"
-                r.font.size = Pt(10)
-                r.font.bold = True
-                r.font.color.rgb = RGBColor(255, 255, 255)
-            for ri, row in enumerate(rows):
-                tr = t.rows[ri + 1]
-                docx_cant_split(tr)
-                bg = "F8FAFC" if ri % 2 == 1 else "FFFFFF"
-                for ci, val in enumerate(row):
-                    c = tr.cells[ci]
-                    c.text = ""
-                    docx_cell_bg(c, bg)
-                    docx_cell_margins(c, top=80, bottom=80, left=110, right=110)
-                    docx_cell_borders(c, "CBD5E1", "4")
-                    p = c.paragraphs[0]
-                    p.paragraph_format.space_after = Pt(0)
-                    p.paragraph_format.line_spacing = 1.15
-                    r = p.add_run(str(val))
-                    r.font.name = "Times New Roman"
-                    r.font.size = Pt(9.5)
-            if col_widths:
-                total_w = sum(col_widths)
-                for row in t.rows:
-                    for ci, w in enumerate(col_widths):
-                        row.cells[ci].width = Inches(6.02 * (w / total_w))
-            sp = doc.add_paragraph()
-            sp.paragraph_format.space_after = Pt(4)
+        # 1. TITLE PAGE
+        add_p(self.project_title, size=16, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.25, sa=14)
+        add_p("A PROJECT REPORT SUBMITTED TO", size=14, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.2, sa=12)
+        add_p("SRM INSTITUTE OF SCIENCE AND TECHNOLOGY", size=14, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.2, sa=12)
+        add_p("IN PARTIAL FULFILLMENT OF THE REQUIREMENTS FOR THE\nAWARD OF THE DEGREE OF", size=14, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.3, sa=14)
+        add_p(self.degree_title, size=16, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.2, sa=14)
+        add_p("BY", size=16, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.2, sa=14)
+        add_p(self.student_name, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.2, sa=10)
+        add_p(f"REG. NO. {self.reg_no}", size=12, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.2, sa=14)
+        add_p("UNDER THE GUIDANCE OF", size=12, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.2, sa=10)
+        add_p(self.guide_upper, size=12, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.2, sa=10)
+        add_p("ASSISTANT PROFESSOR,", size=12, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.2, sa=10)
+        if self.srm_logo_path and os.path.exists(self.srm_logo_path):
+            lp = doc.add_paragraph()
+            lp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            lp.paragraph_format.space_after = Pt(12)
+            lp.add_run().add_picture(self.srm_logo_path, width=Inches(2.60))
+        for fl in [
+            "DEPARTMENT OF COMPUTER APPLICATIONS",
+            "DIRECTORATE OF DISTANCE EDUCATION",
+            "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY",
+            "(Deemed to be university u/s 3 of UGC Act, 1956)",
+            "Kattankulathur – 603 203",
+            "Chennai, Tamilnadu",
+            self.month_year,
+        ]:
+            add_p(fl, size=12, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.25, sa=2)
+        doc.add_page_break()
 
-        def add_docx_leader_list(entries):
-            t = doc.add_table(rows=len(entries), cols=2)
-            t.alignment = WD_TABLE_ALIGNMENT.CENTER
-            for idx, (lvl, label, pg) in enumerate(entries):
-                row = t.rows[idx]
-                docx_cant_split(row)
-                c0, c1 = row.cells[0], row.cells[1]
-                c0.width = Inches(5.32)
-                c1.width = Inches(0.70)
-                docx_cell_margins(c0, top=45, bottom=45, left=40 + lvl * 180, right=40)
-                docx_cell_margins(c1, top=45, bottom=45, left=40, right=40)
-                p0 = c0.paragraphs[0]
-                p0.paragraph_format.space_after = Pt(0)
-                r0 = p0.add_run(label)
-                r0.font.name = "Times New Roman"
-                r0.font.size = Pt(11 if lvl == 0 else 10.5)
-                r0.font.bold = (lvl == 0)
-                p1 = c1.paragraphs[0]
-                p1.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                p1.paragraph_format.space_after = Pt(0)
-                r1 = p1.add_run(str(pg))
-                r1.font.name = "Times New Roman"
-                r1.font.size = Pt(11 if lvl == 0 else 10.5)
-                r1.font.bold = (lvl == 0)
-
-        # Bonafide Certificate
-        add_docx_prelim_title("BONAFIDE CERTIFICATE")
-        p_bon = doc.add_paragraph()
-        p_bon.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        p_bon.paragraph_format.line_spacing = 1.75
-        p_bon.paragraph_format.space_after = Pt(42)
-        for txt, b in [
+        # 2. BONAFIDE CERTIFICATE
+        add_p("BONAFIDE CERTIFICATE", size=14, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
+        pb = doc.add_paragraph()
+        pb.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        pb.paragraph_format.first_line_indent = Pt(28)
+        pb.paragraph_format.line_spacing = 1.6
+        pb.paragraph_format.space_after = Pt(54)
+        for seg, is_b in [
             ("This is to certify that the project report titled ", False),
             (f"“{self.project_title}”", True),
             (" is a bonafide work carried out by ", False),
-            (f"{self.student_name} ({self.reg_no})", True),
-            (f" under my supervision for the award of the Degree of {self.degree_title.title()}. "
+            (self.student_name, True),
+            (" (", False),
+            (self.reg_no, True),
+            (") under my supervision for the award of the Degree of Bachelor of Computer Applications. "
              "To my knowledge the work reported herein is the original work done by the candidate.", False),
         ]:
-            r = p_bon.add_run(txt)
+            rn = pb.add_run(seg)
+            rn.font.name = "Times New Roman"
+            rn.font.size = Pt(12)
+            rn.font.bold = is_b
+
+        bt = doc.add_table(rows=2, cols=2)
+        bt.alignment = WD_TABLE_ALIGNMENT.CENTER
+        c00, c01 = bt.rows[0].cells[0], bt.rows[0].cells[1]
+        c00.paragraphs[0].paragraph_format.line_spacing = 1.5
+        for txt, bld in [
+            ("PROJECT GUIDE\n", True),
+            (f"{self.guide_mixed}\n", True),
+            ("Assistant Professor,\nSRMIST-DDE,\n\n\n", False),
+        ]:
+            r = c00.paragraphs[0].add_run(txt)
             r.font.name = "Times New Roman"
             r.font.size = Pt(12)
-            r.font.bold = b
+            r.font.bold = bld
 
-        stbl = doc.add_table(rows=3, cols=2)
-        stbl.alignment = WD_TABLE_ALIGNMENT.CENTER
-        sigs = [
-            ("PROJECT GUIDE\n\n\nDr. A. Thirumurthi Raja\nAssistant Professor,\nSRMIST-DDE,",
-             "HEAD OF DEPARTMENT\n\n\nDr. A. Thirumurthi Raja\nProgram Coordinator,\nDepartment of Computer Applications,\nDirectorate of Distance Education (DDE),\nSRMIST,"),
-            ("\n\n", "\n\n"),
-            ("INTERNAL EXAMINER", "EXTERNAL EXAMINER"),
-        ]
-        for ri, (ltxt, rtxt) in enumerate(sigs):
-            for ci, val in enumerate([ltxt, rtxt]):
-                cell = stbl.rows[ri].cells[ci]
-                cell.width = Inches(3.01)
-                p = cell.paragraphs[0]
-                p.paragraph_format.line_spacing = 1.35
-                for li, ln in enumerate(val.split("\n")):
-                    run = p.add_run((ln + "\n") if li < len(val.split("\n")) - 1 else ln)
-                    run.font.name = "Times New Roman"
-                    run.font.size = Pt(11.5)
-                    run.font.bold = (li == 0 or "Thirumurthi" in ln or "EXAMINER" in ln)
-        doc.add_page_break()
-
-        # Declaration
-        add_docx_prelim_title("DECLARATION")
-        add_docx_p(
-            f"I, {self.student_name} ({self.reg_no}), hereby declare that the project report entitled "
-            f"“{self.project_title}” submitted to SRM Institute of Science and Technology in partial "
-            f"fulfillment of the requirements for the award of the Degree of {self.degree_title.title()} "
-            f"is a record of original software engineering and academic project work carried out by me "
-            f"under the supervision and guidance of Dr. A. Thirumurthi Raja, M.C.A., M.E., Ph.D., "
-            f"Assistant Professor, Department of Computer Applications, Directorate of Distance Education, "
-            f"SRMIST. I further declare that this project report or any part thereof has not been submitted "
-            f"earlier to any other University or Institution for the award of any degree or diploma.",
-            sa=48, line_sp=1.75
-        )
-        add_docx_p("Place: Chennai\nDate: November 2026", sa=6, line_sp=1.4)
-        add_docx_p(f"{self.student_name}\n({self.reg_no})\nSignature of the Candidate", align="right", sa=6, line_sp=1.4)
-        doc.add_page_break()
-
-        # Acknowledgement
-        add_docx_prelim_title("ACKNOWLEDGEMENT")
-        for ap in [
-            "With profound gratitude to the ALMIGHTY, I take this chance to thank the people who helped me to complete this project.",
-            "I take this as a right opportunity to say THANKS to my parents who are there to stand with me always with the words “YOU CAN”.",
-            "I am thankful to Dr. T. R. Paarivendhar, Chancellor, SRM Institute of Science & Technology who gave us the platform to establish ourselves and reach greater heights.",
-            "I express my deep sense of gratitude to the Director Dr. Manoranjan Pon Ram for his wholehearted support and encouragement.",
-            "I earnestly thank Dr. A. Thirumurthi Raja, Programme Coordinator, BCA/MCA — Directorate of Distance Education, SRM Institute of Science & Technology who always encourages us to pursue novel engineering solutions.",
-            "It is my delight to thank my project guide Dr. A. Thirumurthi Raja, Assistant Professor, Department of Computer Applications (DDE), for his help, support, encouragement, suggestions, and guidance throughout the development phases of the project.",
-            "I convey my sincere gratitude to all the faculty members of the department who extended their support through valuable comments and suggestions during the reviews.",
-            "A great note of gratitude to friends and colleagues who helped in carrying out this project work to a successful completion.",
+        c01.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        c01.paragraphs[0].paragraph_format.line_spacing = 1.5
+        for txt, bld in [
+            ("HEAD OF DEPARTMENT\n", True),
+            (f"{self.guide_mixed}\n", True),
+            ("Program Coordinator\nDepartment of Computer Applications,\nDirectorate of Distance Education (DDE)\n", False),
+            ("SRMIST,\n\n", True),
         ]:
-            add_docx_p(ap, sa=10)
-        add_docx_p(self.student_name, align="right", bp="", sa=6)
+            r = c01.paragraphs[0].add_run(txt)
+            r.font.name = "Times New Roman"
+            r.font.size = Pt(12)
+            r.font.bold = bld
+
+        for cell_ex, ex_lbl, al in [
+            (bt.rows[1].cells[0], "INTERNAL EXAMINER", WD_ALIGN_PARAGRAPH.LEFT),
+            (bt.rows[1].cells[1], "EXTERNAL EXAMINER", WD_ALIGN_PARAGRAPH.CENTER),
+        ]:
+            cell_ex.paragraphs[0].alignment = al
+            rx = cell_ex.paragraphs[0].add_run(ex_lbl)
+            rx.font.name = "Times New Roman"
+            rx.font.size = Pt(12)
+            rx.font.bold = True
         doc.add_page_break()
 
-        fixed_prelim = [
-            (1, "Title Page", "i"),
-            (1, "Bonafide Certificate", page_map.get("prelim_bonafide", "ii")),
-            (1, "Declaration", page_map.get("prelim_declaration", "iii")),
-            (1, "Acknowledgement", page_map.get("prelim_ack", "iv")),
-        ]
+        # 3. ACKNOWLEDGEMENT
+        add_p("ACKNOWLEDGEMENT", size=14, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=20)
+        for txt, fi in [
+            ("With profound gratitude to the ALMIGHTY, I take this chance to thank the people who helped me to complete this project.", 32),
+            ("I take this as a right opportunity to say THANKS to my parents who are there to stand with me always with the words “ANYTHING IS ACHIEVABLE WITH HARDWORK AND PERSISTENCE”.", 0),
+            ("I am thankful to Dr.T.R. Paarivendhar, Chancellor, SRM Institute of Science & Technology who gave us the platform to establish ourselves and reach greater heights.", 32),
+            ("I express my deep sense of gratitude to the Director, Directorate of Distance Education, SRM Institute of Science & Technology for their wholehearted support and encouragement.", 32),
+            (f"With gratitude I like to thank my project guide {self.guide_mixed}, Assistant Professor, Department of Computer Applications (DDE), for his help, support, encouragement, suggestions, and guidance throughout the development phases of the project.", 32),
+            ("I take this opportunity to extend my sincere gratitude to all the faculty members of the department who provided their support through valuable comments and suggestions during the reviews.", 32),
+            ("A great note of gratitude to friends and colleagues who helped in carrying out this project work to a successful completion.", 32),
+        ]:
+            add_p(txt, size=12, line_sp=1.6, sa=12, first_ind=fi)
+        add_p(self.student_name.title(), size=12, bold=True, align=WD_ALIGN_PARAGRAPH.RIGHT, sb=28, sa=6)
+        doc.add_page_break()
 
-        for blk in self.prelim_blocks:
-            kind = blk[0]
-            if kind == "prelim_h1":
-                add_docx_prelim_title(blk[2])
-            elif kind == "p":
-                _, text, bp, align, sa = blk
-                add_docx_p(text, bp=bp, align=align, sa=sa)
-            elif kind == "raw_table":
-                _, headers, rows, cw = blk
-                add_docx_table(headers, rows, cw)
-            elif kind == "page_break":
-                doc.add_page_break()
-            elif kind == "toc_placeholder":
-                add_docx_prelim_title("TABLE OF CONTENTS")
-                all_toc = list(fixed_prelim) + [(lvl, tlabel, page_map.get(tkey, "1")) for lvl, tkey, tlabel in self.toc_entries]
-                add_docx_leader_list(all_toc)
-                doc.add_page_break()
-            elif kind == "lof_placeholder":
-                add_docx_prelim_title("LIST OF FIGURES")
-                add_docx_leader_list([(1, f"Figure {fn}: {cap}", page_map.get(fk, "1")) for fk, fn, cap in self.lof_entries])
-                doc.add_page_break()
-            elif kind == "lot_placeholder":
-                add_docx_prelim_title("LIST OF TABLES")
-                add_docx_leader_list([(1, f"Table {tn}: {cap}", page_map.get(tk, "1")) for tk, tn, cap in self.lot_entries])
+        # 4. TABLE OF CONTENTS (Dotted Tab Leaders matching ref_004.png & ref_005.png)
+        add_p("TABLE OF CONTENTS", size=14, bold=False, align=WD_ALIGN_PARAGRAPH.CENTER, sa=16)
+        for item in self.toc_entries:
+            tp = doc.add_paragraph()
+            tp.paragraph_format.left_indent = Pt(item["indent"])
+            tp.paragraph_format.line_spacing = 1.6
+            tp.paragraph_format.space_after = Pt(2)
+            tp.paragraph_format.tab_stops.add_tab_stop(
+                Inches(6.48), WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS
+            )
+            pg = page_map.get(item["key"], "7") if (item["show_page"] and item["key"]) else None
+            txt_run = f"{item['label']}\t{pg}" if pg is not None else item["label"]
+            rt = tp.add_run(txt_run)
+            rt.font.name = "Times New Roman"
+            rt.font.size = Pt(13.5)
+        doc.add_page_break()
 
-        # ---- SECTION 2: MAIN BODY (Arabic Page 1+) ----
-        sec_main = doc.add_section(WD_SECTION.NEW_PAGE)
-        setup_sec(sec_main, fmt="decimal", start=1, border=False)
-        sec_main.header.is_linked_to_previous = False
-        sec_main.footer.is_linked_to_previous = False
+        # 5. ABSTRACT
+        add_p(self.abstract_heading_title, size=14, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=16)
+        add_p("Abstract:", size=14, bold=True, align=WD_ALIGN_PARAGRAPH.LEFT, sa=12)
+        for ap in self.abstract_paras:
+            add_p(ap, size=14, line_sp=1.55, sa=10, first_ind=36)
 
-        hp = sec_main.header.paragraphs[0]
-        hp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        hr = hp.add_run(f"{self.short_title}  |  BCA Project Report (SRMIST)")
-        hr.font.name = "Times New Roman"
-        hr.font.size = Pt(9.5)
-        hr.font.italic = True
-        hr.font.color.rgb = RGBColor(71, 85, 105)
-
-        fp = sec_main.footer.paragraphs[0]
-        fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        fr1 = fp.add_run("Page ")
-        fr1.font.name = "Times New Roman"
-        fr1.font.size = Pt(10.5)
-        fr2 = fp.add_run()
-        fr2.font.name = "Times New Roman"
-        fr2.font.size = Pt(10.5)
-        docx_add_page_number_field(fr2)
-
-        first_chap = True
+        # 6. CHAPTERS 1..6
         for blk in self.body_blocks:
-            kind = blk[0]
-            if kind == "chapter":
-                _, key, chap_num, chap_title, _ = blk
-                if not first_chap:
+            btype = blk[0]
+            if btype == "chapter":
+                _, chap_num, subtitle = blk
+                doc.add_page_break()
+                add_p(f"CHAPTER {chap_num}", size=14, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=14)
+                if subtitle:
+                    add_p(subtitle, size=14, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=14)
+            elif btype == "section":
+                _, _, disp, new_page, render_heading = blk
+                if new_page:
                     doc.add_page_break()
-                first_chap = False
-                if chap_num is not None:
-                    p_cn = doc.add_paragraph()
-                    p_cn.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    p_cn.paragraph_format.space_before = Pt(4)
-                    p_cn.paragraph_format.space_after = Pt(4)
-                    rcn = p_cn.add_run(f"CHAPTER {chap_num}")
-                    rcn.font.name = "Times New Roman"
-                    rcn.font.size = Pt(14)
-                    rcn.font.bold = True
-                    rcn.font.color.rgb = RGBColor(30, 58, 138)
-                p_ct = doc.add_paragraph()
-                p_ct.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                p_ct.paragraph_format.space_after = Pt(16)
-                rct = p_ct.add_run(chap_title)
-                rct.font.name = "Times New Roman"
-                rct.font.size = Pt(16)
-                rct.font.bold = True
-                rct.font.color.rgb = RGBColor(15, 39, 68)
-            elif kind == "h2":
-                _, _, label = blk
-                p = doc.add_paragraph()
-                p.paragraph_format.keep_with_next = True
-                p.paragraph_format.space_before = Pt(13)
-                p.paragraph_format.space_after = Pt(6)
-                r = p.add_run(label)
-                r.font.name = "Times New Roman"
-                r.font.size = Pt(14)
-                r.font.bold = True
-                r.font.color.rgb = RGBColor(15, 39, 68)
-            elif kind == "h3":
-                _, _, label = blk
-                p = doc.add_paragraph()
-                p.paragraph_format.keep_with_next = True
-                p.paragraph_format.space_before = Pt(10)
-                p.paragraph_format.space_after = Pt(4)
-                r = p.add_run(label)
-                r.font.name = "Times New Roman"
-                r.font.size = Pt(12)
-                r.font.bold = True
-                r.font.color.rgb = RGBColor(30, 58, 138)
-            elif kind == "p":
-                _, text, bp, align, sa = blk
-                add_docx_p(text, bp=bp, align=align, sa=sa)
-            elif kind == "bullet":
-                _, bp, text = blk
-                p = doc.add_paragraph(style="List Bullet")
-                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                p.paragraph_format.line_spacing = 1.4
-                p.paragraph_format.space_after = Pt(5)
-                if bp:
-                    rb = p.add_run(bp + " ")
-                    rb.font.name = "Times New Roman"
-                    rb.font.size = Pt(12)
-                    rb.font.bold = True
-                rt = p.add_run(text)
-                rt.font.name = "Times New Roman"
-                rt.font.size = Pt(12)
-            elif kind == "table":
-                _, _, tbl_num, caption, headers, rows, cw = blk
-                pcap = doc.add_paragraph()
-                pcap.paragraph_format.keep_with_next = True
-                pcap.paragraph_format.space_before = Pt(8)
-                pcap.paragraph_format.space_after = Pt(4)
-                rcap = pcap.add_run(f"Table {tbl_num}: {caption}")
-                rcap.font.name = "Times New Roman"
-                rcap.font.size = Pt(10.5)
-                rcap.font.bold = True
-                rcap.font.color.rgb = RGBColor(15, 39, 68)
-                add_docx_table(headers, rows, cw)
-            elif kind == "figure":
-                _, _, fig_num, caption, img_path, width_in = blk
+                if render_heading:
+                    add_p(disp, size=14, bold=True, align=WD_ALIGN_PARAGRAPH.LEFT, sb=12, sa=10, keep_next=True)
+            elif btype == "subheading":
+                _, text, sb, sa = blk
+                add_p(text, size=14, bold=True, align=WD_ALIGN_PARAGRAPH.LEFT, sb=sb, sa=sa, keep_next=True)
+            elif btype == "p":
+                _, text, bp, first_ind, sa = blk
+                add_p(text, size=14, line_sp=1.55, sa=sa, first_ind=first_ind, bp=bp)
+            elif btype == "bullet":
+                _, text, bp = blk
+                p = add_p(text, size=14, line_sp=1.55, sa=6, bp=(f"▪   {bp}" if bp else "▪  "))
+                p.paragraph_format.left_indent = Pt(28)
+                p.paragraph_format.first_line_indent = Pt(-16)
+            elif btype == "numlist":
+                _, items = blk
+                for idx, it in enumerate(items, 1):
+                    p = add_p(f"{idx}.   {it}", size=14, align=WD_ALIGN_PARAGRAPH.LEFT, line_sp=1.55, sa=4)
+                    p.paragraph_format.left_indent = Pt(28)
+            elif btype == "colon_specs":
+                _, pairs = blk
+                st = doc.add_table(rows=len(pairs), cols=3)
+                for r_i, (lbl, val) in enumerate(pairs):
+                    for c_i, v_str in enumerate([f"▪   {lbl}", ":", val]):
+                        rc = st.rows[r_i].cells[c_i].paragraphs[0].add_run(v_str)
+                        rc.font.name = "Times New Roman"
+                        rc.font.size = Pt(14)
+                doc.add_paragraph()
+            elif btype == "diagram_inline":
+                _, img_path, width_in, _ = blk
                 if os.path.exists(img_path):
                     pi = doc.add_paragraph()
                     pi.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    pi.paragraph_format.keep_with_next = True
-                    pi.paragraph_format.space_before = Pt(8)
-                    pi.paragraph_format.space_after = Pt(4)
-                    pi.add_run().add_picture(img_path, width=Inches(min(width_in, 5.95)))
-                    pc = doc.add_paragraph()
-                    pc.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    pc.paragraph_format.space_after = Pt(10)
-                    rc = pc.add_run(f"Figure {fig_num}: {caption}")
-                    rc.font.name = "Times New Roman"
-                    rc.font.size = Pt(10.5)
-                    rc.font.bold = True
-                    rc.font.italic = True
-                    rc.font.color.rgb = RGBColor(51, 65, 85)
-            elif kind == "code":
-                _, title, code_text = blk
+                    pi.add_run().add_picture(img_path, width=Inches(min(width_in, 6.25)))
+            elif btype == "diagram_page":
+                _, _, disp, img_path, width_in, _ = blk
+                doc.add_page_break()
+                add_p(disp, size=14, bold=True, align=WD_ALIGN_PARAGRAPH.LEFT, sa=14)
+                if os.path.exists(img_path):
+                    pi = doc.add_paragraph()
+                    pi.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    pi.add_run().add_picture(img_path, width=Inches(min(width_in, 6.25)))
+            elif btype == "lit_item":
+                _, title, year, author, abs_txt = blk
+                add_p(title, size=14, align=WD_ALIGN_PARAGRAPH.LEFT, sa=10, bp="TITLE:")
+                add_p(year, size=14, align=WD_ALIGN_PARAGRAPH.LEFT, sa=10, bp="YEAR OF PUBLISHING:")
+                add_p(author, size=14, align=WD_ALIGN_PARAGRAPH.LEFT, sa=10, bp="AUTHOR NAME:")
+                add_p(abs_txt, size=14, line_sp=1.55, sa=14, bp="ABSTRACT:")
+            elif btype == "table":
+                _, title, headers, rows, cw = blk
                 if title:
-                    pt = doc.add_paragraph()
-                    pt.paragraph_format.keep_with_next = True
-                    pt.paragraph_format.space_before = Pt(8)
-                    pt.paragraph_format.space_after = Pt(3)
-                    rt = pt.add_run(title)
-                    rt.font.name = "Times New Roman"
-                    rt.font.size = Pt(10.5)
-                    rt.font.bold = True
-                    rt.font.color.rgb = RGBColor(30, 58, 138)
-                ct = doc.add_table(rows=1, cols=1)
-                ct.alignment = WD_TABLE_ALIGNMENT.CENTER
-                cell = ct.rows[0].cells[0]
-                cell.width = Inches(6.02)
-                docx_cell_bg(cell, "F8FAFC")
-                docx_cell_margins(cell, top=110, bottom=110, left=140, right=140)
-                docx_cell_borders(cell, "CBD5E1", "4")
-                cp = cell.paragraphs[0]
-                cp.paragraph_format.line_spacing = 1.08
-                cp.paragraph_format.space_after = Pt(0)
-                cr = cp.add_run(code_text.strip("\n"))
-                cr.font.name = "Consolas"
-                cr.font.size = Pt(8.5)
-                cr.font.color.rgb = RGBColor(15, 23, 42)
-                sp = doc.add_paragraph()
-                sp.paragraph_format.space_after = Pt(5)
-            elif kind == "page_break":
+                    add_p(title, size=14, bold=True, align=WD_ALIGN_PARAGRAPH.LEFT, sb=10, sa=6, keep_next=True)
+                t = doc.add_table(rows=1 + len(rows), cols=len(headers))
+                t.alignment = WD_TABLE_ALIGNMENT.CENTER
+                for ci, h in enumerate(headers):
+                    c = t.rows[0].cells[ci]
+                    _docx_cell_borders(c)
+                    _docx_cell_margins(c)
+                    rh = c.paragraphs[0].add_run(str(h))
+                    rh.font.name = "Times New Roman"
+                    rh.font.size = Pt(11)
+                    rh.font.bold = True
+                for ri, row in enumerate(rows, 1):
+                    for ci, v in enumerate(row):
+                        c = t.rows[ri].cells[ci]
+                        _docx_cell_borders(c)
+                        _docx_cell_margins(c)
+                        rv = c.paragraphs[0].add_run(str(v))
+                        rv.font.name = "Times New Roman"
+                        rv.font.size = Pt(10.5)
+                doc.add_paragraph()
+            elif btype == "screenshots":
+                _, _, heading_disp, items = blk
+                doc.add_page_break()
+                add_p(heading_disp, size=14, bold=True, align=WD_ALIGN_PARAGRAPH.LEFT, sa=12)
+                for idx, (cap, img_path) in enumerate(items):
+                    if idx > 0 and idx % 2 == 0:
+                        doc.add_page_break()
+                    if os.path.exists(img_path):
+                        pi = doc.add_paragraph()
+                        pi.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        pi.paragraph_format.space_after = Pt(4)
+                        pi.add_run().add_picture(img_path, width=Inches(6.20))
+                        add_p(cap, size=12, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, line_sp=1.2, sa=14)
+            elif btype == "code_file":
+                _, filename_header, lines = blk
+                add_p(filename_header, size=13.5, bold=True, align=WD_ALIGN_PARAGRAPH.LEFT, sb=12, sa=8, keep_next=True)
+                for ln in lines:
+                    add_p(ln, size=11.5, align=WD_ALIGN_PARAGRAPH.LEFT, line_sp=1.35, sa=2)
+            elif btype == "page_break":
                 doc.add_page_break()
 
         doc.save(docx_path)
 
     def build_both(self, docx_path, pdf_path):
-        print("Pass 1: Computing exact layout & page numbers...")
-        tmp_pdf = pdf_path + ".pass1.tmp"
-        page_map = self._build_pdf_once(tmp_pdf, {})
-        if os.path.exists(tmp_pdf):
-            os.remove(tmp_pdf)
-        print(f"Pass 1 complete: tracked {len(page_map)} headings, figures, and tables.")
+        print("Pass 1: Computing exact 1-based page numbers...")
+        tmp = pdf_path + ".pass1.tmp"
+        p1 = self._build_pdf_once(tmp, {})
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        print(f"Pass 1 complete: tracked {len(p1)} TOC targets.")
         print("Pass 2: Rendering final synchronized PDF and DOCX...")
-        final_map = self._build_pdf_once(pdf_path, page_map)
-        self._build_docx(docx_path, final_map)
-        return final_map
+        p2 = self._build_pdf_once(pdf_path, p1)
+        # If TOC expanded across pass1->pass2, run one convergence pass
+        if p2 != p1:
+            p2 = self._build_pdf_once(pdf_path, p2)
+        self._build_docx(docx_path, p2)
+        return p2

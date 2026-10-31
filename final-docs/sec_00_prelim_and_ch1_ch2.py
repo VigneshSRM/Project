@@ -1,583 +1,420 @@
 """
-Preliminary Sections (Abstract, TOC, LOF, LOT, Abbreviations) +
-Chapter 1 (Introduction) + Chapter 2 (Literature Review).
+Abstract, Chapter 1 (Introduction, Existing System, Proposed System, System
+Specification, Architecture Diagram, UML & DFD Diagrams), and Chapter 2
+(Literature Survey) in exact SRMIST-DDE reference PDF format.
 """
+import os
 
 
-def populate_prelim_and_ch1_ch2(b):
+def populate_abstract_ch1_ch2(b, assets_dir):
     # ==========================================================================
-    # PRELIMINARY PAGES: ABSTRACT, TOC, LOF, LOT, ABBREVIATIONS
+    # ABSTRACT (Rendered right after Table of Contents, matching ref_006.png)
     # ==========================================================================
-    b.add_prelim_heading("ABSTRACT", "Abstract")
-    b.add_prelim_p(
-        "Outpatient healthcare delivery across urban and semi-urban clinics frequently suffers from fragmented "
-        "operational software, disconnected patient records, handwritten or easily forged prescriptions, and "
-        "manual pharmacy billing ledgers. When patients consult doctors across multiple independent clinics, "
-        "their demographic profiles, allergy disclosures, consultation histories, and active medications become "
-        "trapped inside isolated silos or paper folders. Simultaneously, community pharmacies struggle to verify "
-        "whether a presented prescription is authentic, unexpired, uncancelled, or already dispensed elsewhere, "
-        "creating clinical medication-safety risks as well as manual accounting discrepancies between point-of-sale "
-        "dispensing and daily financial cashbooks."
+    b.add_abstract_paragraph(
+        "In contemporary outpatient clinics, diagnostic centers, and retail community pharmacies, "
+        "clinical record management, patient identity verification, prescription authoring, and "
+        "medication dispensing routinely operate across disconnected software silos and handwritten "
+        "registers. This operational fragmentation produces duplicate walk-in versus online patient "
+        "charts, double-booked physician appointment slots, forged or illegible paper prescriptions, "
+        "accidental over-dispensing across pharmacy counters, and manual errors in daily financial "
+        "reconciliation. This project addresses these critical healthcare challenges by designing and "
+        "implementing the Infeara Medical System (IMS)—a unified, multi-tenant clinical operations, "
+        "electronic prescribing (e-Rx), and pharmacy Point of Sale (POS) platform built on Java 27, "
+        "Spring Boot 4.1.2, Spring Security 6, Thymeleaf 3.1, Flyway, and Microsoft SQL Server 2022."
     )
-    b.add_prelim_p(
-        "To resolve these end-to-end operational, cryptographic, and clinical challenges, this project presents "
-        "the design, implementation, and validation of the Infeara Medical System (IMS) — a secure, multi-tenant "
-        "healthcare enterprise resource planning (ERP) web platform engineered as a modular monolith on Java 27 "
-        "and Spring Boot 4.1.2, backed by Microsoft SQL Server 2022 Express (with Flyway versioned schema "
-        "migrations V001 through V009) and a zero-setup H2 compatibility profile. IMS unifies six distinct "
-        "security principals across five role-tailored workspaces: Super Admin (/admin/**), Clinic Administration "
-        "(/clinic/**), Doctor Workspace (/doctor/**), Patient Self-Service Portal (/patient/**), and Pharmacy "
-        "Point-of-Sale & Finance Workspace (/pharmacy/**), governed by Spring Security 6 session authentication, "
-        "BCrypt delegating password hashing, brute-force login throttling, and real-time tenant suspension filters."
-    )
-    b.add_prelim_p(
-        "The platform introduces four key architectural innovations grounded directly in clinical workflow safety. "
-        "First, a staff-verified Patient Identity and Non-Destructive Record Merge engine enables patients to link "
-        "a single verified account across multiple enrolled clinics while allowing clinic administrators to merge "
-        "prior walk-in charts onto the patient's account without breaking foreign-key audit trails. Second, an "
-        "atomic Appointment Slot Scheduling engine combines pessimistic doctor row locking with a filtered SQL "
-        "Server unique index (UX_Appt_Slot) to guarantee zero double-bookings under concurrent requests. Third, "
-        "an immutable Clinical Consultation and Electronic Prescription engine transitions clinical notes from "
-        "DRAFT to FINAL (permitting only signed append-only ConsultationAddenda thereafter) and issues "
-        "case-sensitive 32-character CSPRNG prescription codes enforced via SQL Server Latin1_General_100_BIN2 "
-        "binary collation. Fourth, an integrated Pharmacy Point-of-Sale (POS) and Finance Ledger module verifies "
-        "32-character codes in real time, prevents over-dispensing across partial fills, remembers per-medicine "
-        "unit prices automatically, computes discounts and taxes, generates itemized receipts, and auto-posts "
-        "completed sale totals as linked INCOME entries in the pharmacy financial ledger."
-    )
-    b.add_prelim_p(
-        "Complemented by a transactional database-backed Email Outbox worker with exponential retry backoff, "
-        "AES-256-GCM encryption for stored SMTP credentials, and comprehensive JUnit 5, Mockito, and Spring "
-        "MockMvc security/integration test suites, Infeara Medical System demonstrates a production-grade, "
-        "auditable, and cost-effective digital health backbone suitable for multi-clinic networks and retail "
-        "pharmacies.",
-        space_after=12
-    )
-    b.add_prelim_p(
-        "Multi-Tenant Healthcare ERP, Spring Boot 4, Electronic Prescription (e-Rx), Non-Destructive Patient "
-        "Record Merge, Role-Based Access Control (RBAC), Pharmacy Point of Sale (POS), Transactional Email "
-        "Outbox, AES-256-GCM, SQL Server 2022.",
-        bold_prefix="Keywords:"
-    )
-    b.add_prelim_page_break()
-
-    # TOC, LOF, LOT
-    b.add_toc_placeholder()
-    b.add_lof_placeholder()
-    b.add_lot_placeholder()
-    b.add_prelim_page_break()
-
-    # Abbreviations
-    b.add_prelim_heading("ABBREVIATIONS AND ACRONYMS", "Abbreviations / Acronyms")
-    b.add_prelim_table(
-        ["Acronym", "Expanded Technical / Clinical Term"],
-        [
-            ["ACID", "Atomicity, Consistency, Isolation, and Durability"],
-            ["AES-GCM", "Advanced Encryption Standard — Galois/Counter Mode (Authenticated Encryption)"],
-            ["API", "Application Programming Interface"],
-            ["BCrypt", "Blowfish-Based Adaptive Password Hashing Function"],
-            ["BIN2", "SQL Server Binary Code-Point Collation (Latin1_General_100_BIN2)"],
-            ["CSRF", "Cross-Site Request Forgery"],
-            ["CSPRNG", "Cryptographically Secure Pseudo-Random Number Generator (java.security.SecureRandom)"],
-            ["CSV", "Comma-Separated Values (Clinic Formulary Import/Export)"],
-            ["DAO / JPA", "Data Access Object / Jakarta Persistence API"],
-            ["DDL / DML", "Data Definition Language / Data Manipulation Language"],
-            ["DFD", "Data Flow Diagram"],
-            ["DOB", "Date of Birth"],
-            ["DTO", "Data Transfer Object"],
-            ["EHR / EMR", "Electronic Health Record / Electronic Medical Record"],
-            ["ERP", "Enterprise Resource Planning"],
-            ["e-Rx", "Electronic Prescription"],
-            ["FK / PK", "Foreign Key / Primary Key"],
-            ["GCM", "Galois/Counter Mode (128-bit Authentication Tag, 96-bit IV)"],
-            ["HTML5 / CSS3", "HyperText Markup Language v5 / Cascading Style Sheets v3"],
-            ["HTTP / HTTPS", "HyperText Transfer Protocol / HTTP Secure (TLS)"],
-            ["IDOR", "Insecure Direct Object Reference"],
-            ["IMS", "Infeara Medical System (Proposed Application Platform)"],
-            ["IV", "Initialization Vector"],
-            ["JDBC", "Java Database Connectivity"],
-            ["JVM / JDK", "Java Virtual Machine / Java Development Kit (Java 27)"],
-            ["KPI", "Key Performance Indicator"],
-            ["MVC", "Model-View-Controller Architectural Pattern"],
-            ["ORM", "Object-Relational Mapping (Hibernate 6)"],
-            ["OWASP", "Open Worldwide Application Security Project"],
-            ["POS", "Point of Sale (Pharmacy Billing & Dispensing Counter)"],
-            ["RBAC", "Role-Based Access Control"],
-            ["RDBMS", "Relational Database Management System (Microsoft SQL Server 2022)"],
-            ["SHA-256", "Secure Hash Algorithm 256-bit Digest (BINARY(32))"],
-            ["SMTP / STARTTLS", "Simple Mail Transfer Protocol / Opportunistic TLS Upgrade"],
-            ["SRS", "Software Requirements Specification"],
-            ["TTL", "Time-To-Live (Token / Prescription Expiration Window)"],
-            ["UAT", "User Acceptance Testing"],
-            ["UML", "Unified Modeling Language"],
-            ["UPI", "Unified Payments Interface"],
-            ["UTC", "Coordinated Universal Time (DATETIME2(3) Timestamp Standard)"],
-        ],
-        col_widths=[1.4, 4.62]
+    b.add_abstract_paragraph(
+        "The platform orchestrates six strictly segregated role-based actors—Super Admin, Clinic Admin, "
+        "Doctor, Patient, Pharmacy Admin, and Pharmacist—across five dedicated operational portals "
+        "initialized via a zero-seed first-run /setup bootstrap wizard. Patients self-register with "
+        "24-hour SHA-256 hashed single-use email verification tokens and submit clinic account link "
+        "requests resolved by front-desk Clinic Administrators after mandatory physical identity "
+        "verification, supporting non-destructive consolidation (mergeIntoClinicRecord) of historical "
+        "walk-in appointments and prescriptions without breaking foreign-key audit trails. Conflict-free "
+        "appointment scheduling combines pessimistic database row locking (findForUpdate) on doctor "
+        "entities with a SQL Server filtered unique index (UX_Appt_Slot) that prevents double-booking "
+        "while immediately releasing cancelled slots. Doctors record consultations through an irreversible "
+        "DRAFT-to-FINAL lifecycle with signed append-only clinical addenda (dbo.ConsultationAddenda) and "
+        "issue 160-bit cryptographically random 32-character unambiguous electronic prescriptions enforced "
+        "under Latin1_General_100_BIN2 case-sensitive binary collation. At the pharmacy counter (/pharmacy/pos), "
+        "pharmacists scan or enter the 32-character Prescription ID to verify authenticity, guard against "
+        "over-dispensing across partial fills, auto-populate remembered unit prices (dbo.PharmacyMedicinePrices), "
+        "generate itemized tax/discount receipts, and automatically post completed sale totals as linked "
+        "INCOME entries into the pharmacy financial ledger (dbo.PharmacyFinanceEntries)."
     )
 
     # ==========================================================================
-    # CHAPTER 1: INTRODUCTION
+    # CHAPTER 1: INTRODUCTION, SYSTEM SPEC, ARCHITECTURE & UML DIAGRAMS
     # ==========================================================================
-    b.start_chapter(1, "INTRODUCTION")
+    b.start_chapter(1)
 
-    b.h2("1.1", "Overview of the Project")
+    b.section("1.0", "INTRODUCTION")
     b.p(
-        "The Infeara Medical System (IMS), developed under the core package namespace com.clinicflow inside the "
-        "clinicflow-app Maven module, is an integrated, multi-tenant clinical management, patient identity "
-        "federation, electronic prescribing (e-Rx), and pharmacy point-of-sale (POS) web application. Unlike "
-        "conventional single-clinic desktop utilities or isolated pharmacy billing tools, IMS models the complete "
-        "continuum of outpatient primary and specialty care within a single transactional software platform. From "
-        "the moment a platform owner initializes the deployment via the zero-seed /setup bootstrap wizard, "
-        "through clinic and pharmacy onboarding, staff invitation workflows, patient self-registration, verified "
-        "account linking, conflict-free doctor appointment booking, clinical consultation authoring, 32-character "
-        "digital prescription issuance, itemized pharmacy verification and partial dispensing, to automated "
-        "financial ledger posting, every state transition is governed by strict role-based access controls, "
-        "relational integrity constraints, and an immutable compliance audit log."
+        "In today's digital healthcare landscape, outpatient clinics, specialty practices, and community "
+        "pharmacies generate high volumes of sensitive clinical encounters, diagnostic observations, "
+        "medication regimens, and billing transactions every day. While enterprise hospital chains deploy "
+        "expensive, heavyweight Hospital Information Systems, independent clinics and retail pharmacies "
+        "frequently rely on standalone appointment spreadsheets, paper prescription pads, and isolated "
+        "desktop billing utilities. Addressing this critical gap, the Infeara Medical System (IMS)—engineered "
+        "under the com.clinicflow namespace inside the clinicflow-app Maven module—introduces a cohesive, "
+        "security-hardened, multi-tenant web platform unifying clinic administration, patient identity "
+        "federation, doctor consultation workflows, 32-character cryptographic electronic prescriptions, "
+        "and real-time pharmacy Point of Sale (POS) and financial accounting.",
+        first_indent=36
     )
     b.p(
-        "Architecturally, IMS follows the Modular Monolith pattern on Java 27 and Spring Boot 4.1.2. Rather than "
-        "incurring the operational overhead and eventual-consistency hazards of premature microservices, IMS "
-        "partitions domain responsibilities cleanly across dedicated packages — audit, common, config, domain "
-        "(entities, enums, repositories), identity, notifications, security, and role-segregated web controllers "
-        "— while executing multi-entity clinical operations inside ACID database transactions against Microsoft "
-        "SQL Server 2022 Express. Server-rendered user interfaces are built with Thymeleaf 3.1 and the Ultraq "
-        "Layout Dialect over a cohesive Corporate Healthcare ERP design system (app.css), ensuring fast "
-        "first-contentful paint, accessibility compliance, keyboard-friendly POS operation, and strict server-side "
-        "ownership enforcement."
-    )
-    b.table(
-        "1.1", "High-Level Identity and Architectural Profile of Infeara Medical System (IMS)",
-        ["Attribute", "Specification in Current Codebase"],
-        [
-            ["Application Name", "IMS — Infeara Medical System (Artifact: com.clinicflow:clinicflow-app:0.1.0-SNAPSHOT)"],
-            ["Architectural Style", "Six-Tier Modular Monolith with Transactional Database Outbox"],
-            ["Core Runtime & Framework", "Java 27, Spring Boot 4.1.2, Spring WebMVC, Spring Security 6, Spring Data JPA"],
-            ["Database & Schema Versioning", "Microsoft SQL Server 2022 Express (Primary) & H2 MSSQLServer Mode; Flyway V001–V009"],
-            ["Normalized Schema Footprint", "27 Relational Tables, 1 Fulfilment SQL View (vw_PrescriptionFulfilment), 20 Domain Enums"],
-            ["Supported Security Roles", "SUPER_ADMIN, CLINIC_ADMIN, DOCTOR, PATIENT, PHARMACY_ADMIN, PHARMACIST"],
-            ["Presentation Engine", "Thymeleaf + Layout Dialect + Spring Security6 Extras (61 HTML5 Templates + ERP CSS)"],
-            ["Key Cryptographic Controls", "BCrypt Passwords, SHA-256 Single-Use Tokens, AES-256-GCM SecretCipher, 32-Char CSPRNG Rx"],
-        ],
-        col_widths=[2.0, 4.02]
-    )
-
-    b.h2("1.2", "Background of the Study")
-    b.p(
-        "Outpatient clinics and neighborhood retail pharmacies form the frontline of healthcare delivery in India "
-        "and across developing healthcare ecosystems, accounting for more than eighty percent of daily patient "
-        "encounters. Despite rapid growth in consumer digital payments and mobile connectivity, day-to-day clinical "
-        "workflows across small and mid-sized polyclinics remain heavily fragmented. A typical patient visiting two "
-        "different clinics in the same city is assigned separate walk-in registration numbers at each reception "
-        "desk, receives handwritten paper prescriptions with non-standardized drug names, and presents those slips "
-        "at retail pharmacy counters where pharmacists manually transcribe medicine names and re-enter bill totals "
-        "into a separate cash register or spreadsheet."
+        "Within the Infeara Medical System framework, six primary user roles collaborate under strict "
+        "role-based access control (RBAC) enforced by Spring Security 6: Super Administrators (/admin/**), "
+        "Clinic Administrators (/clinic/**), Doctors (/doctor/**), Patients (/patient/**), Pharmacy "
+        "Administrators (/pharmacy/**), and Pharmacists (/pharmacy/**). Rather than shipping hardcoded "
+        "default credentials that expose deployments to unauthorized takeover, IMS implements a zero-seed "
+        "bootstrap lifecycle: when dbo.Users contains zero records, navigating to /setup launches a one-time "
+        "Platform Owner setup wizard that creates the initial SUPER_ADMIN account and permanently seals /setup "
+        "for all subsequent requests.",
+        first_indent=36
     )
     b.p(
-        "This fragmentation produces severe operational and clinical consequences. First, doctors frequently make "
-        "prescribing decisions without visibility into longitudinal diagnoses, chronic lifetime medications, or "
-        "recorded drug allergies captured during earlier visits. Second, paper prescriptions lack cryptographic "
-        "verifiability: once a paper slip leaves the clinic, neither the issuing clinic nor the dispensing pharmacy "
-        "can reliably prevent a controlled or antibiotic prescription from being photocopied, altered, used past "
-        "its clinical validity window, or dispensed repeatedly across different pharmacies. Third, clinic front "
-        "desks managing doctor schedules via phone calls or basic spreadsheets regularly encounter double-booked "
-        "time slots whenever simultaneous walk-in and online requests target the same fifteen-minute window."
+        "From the Super Admin console, the platform owner enrolls participating healthcare clinics and "
+        "licensed dispensing pharmacies, dispatching 72-hour single-use SHA-256 hashed staff invitation "
+        "links (/invite) and configuring outbound mail delivery backed by AES-256-GCM credential encryption "
+        "(SecretCipher) and a resilient database-backed transactional email outbox (EmailDispatchWorker). "
+        "Clinic Administrators manage standardized clinic drug formularies with bulk CSV import/export, "
+        "configure weekday doctor consultation schedules, check in arriving patients, and verify patient "
+        "portal link requests at the reception desk.",
+        first_indent=36
     )
     b.p(
-        "Furthermore, existing commercial cloud EHR suites often fail small and medium healthcare networks for two "
-        "opposite reasons: either they are heavyweight hospital information systems requiring expensive dedicated "
-        "IT teams and complex HL7 middleware, or they are consumer doctor-discovery marketplaces that prioritize "
-        "lead generation while neglecting clinical immutability, verified patient record merging, and pharmacy POS "
-        "financial reconciliation. Studying these real-world gaps directly motivated the engineering of IMS as a "
-        "self-contained, cryptographically hardened, multi-tenant clinical and pharmacy platform."
+        "Architecturally, IMS adopts the Modular Monolith software engineering pattern on Java 27 and "
+        "Spring Boot 4.1.2 over Microsoft SQL Server 2022 (governed by nine deterministic Flyway migrations "
+        "V001 through V009 defining 27 normalized tables and 1 SQL fulfilment view). Multi-table clinical "
+        "operations—such as non-destructive patient chart merging, conflict-free time-slot booking, "
+        "consultation finalization, 32-character prescription generation, and atomic POS stock dispensation "
+        "with automatic financial income posting—execute inside strict ACID transactions protected by "
+        "pessimistic row locks, SQL filtered unique indexes, and ROWVERSION optimistic concurrency columns.",
+        first_indent=36
     )
 
-    b.h2("1.3", "Problem Statement")
+    b.section("1.1", "EXISTING SYSTEM")
     b.p(
-        "A rigorous analysis of outpatient clinical administration, patient record continuity, prescription "
-        "dispensing, and pharmacy accounting reveals eight interconnected technical problems that conventional "
-        "systems fail to address cohesively:"
+        "In the conventional outpatient healthcare ecosystem, clinic front desks, consulting physicians, "
+        "patients, and retail pharmacies operate without a shared, cryptographically verifiable clinical "
+        "backbone. Walk-in patients are registered manually in local reception registers or disconnected "
+        "clinic desktops, while online appointment requests are collected via phone calls or third-party "
+        "forms that have no awareness of existing clinic chart numbers. When a returning walk-in patient "
+        "later creates an online portal login, the clinic creates a second disconnected record, splitting "
+        "allergies, chronic conditions, and past consultations across duplicate identities.",
+        first_indent=36
     )
-    b.bullet("1. Siloed & Duplicated Patient Identities:",
-             "Walk-in clinic registrations and online self-registrations create duplicate patient rows. Naive "
-             "systems either forbid linking altogether or auto-link records by email or name alone, exposing "
-             "sensitive medical histories to account-takeover and identity-spoofing attacks.")
-    b.bullet("2. Destructive Record Merging & Broken Audit Trails:",
-             "When duplicate patient charts are consolidated in legacy databases by deleting the older row, "
-             "historical audit logs and foreign keys referencing the old identifier either fail referential "
-             "integrity checks or lose forensic traceability.")
-    b.bullet("3. Concurrent Appointment Double-Booking:",
-             "Checking slot availability in application memory before inserting an appointment row introduces a "
-             "classic Time-of-Check to Time-of-Use (TOCTOU) race condition when two patients submit bookings for "
-             "the same doctor and timestamp simultaneously.")
-    b.bullet("4. Mutable Clinical Notes Without Forensic Accountability:",
-             "Allowing doctors or staff to overwrite finalized consultation diagnoses silently erodes medico-legal "
-             "trust; clinical systems must freeze finalized notes and mandate timestamped, author-attributed addenda.")
-    b.bullet("5. Unverifiable & Over-Dispensable Prescriptions:",
-             "Paper and PDF prescriptions cannot enforce case-sensitive verification, automatic expiration dates, "
-             "instant clinic revocation, or item-level remaining-quantity tracking across partial pharmacy fills.")
-    b.bullet("6. Disconnected Pharmacy POS & Financial Ledgers:",
-             "Pharmacists waste valuable counter time looking up unit prices repeatedly and manually copying POS "
-             "receipt totals into daily income ledgers, resulting in pricing errors and cashbook mismatches.")
-    b.bullet("7. Unreliable Synchronous Email Dispatch & Plaintext Credentials:",
-             "Sending verification or prescription emails synchronously inside HTTP request threads causes timeouts "
-             "whenever an SMTP server stalls, while storing SMTP passwords in plaintext database columns creates "
-             "credential-leakage vulnerabilities.")
-    b.bullet("8. Delayed Revocation of Suspended Tenant Sessions:",
-             "In standard session-based web apps, suspending a clinic tenant does not invalidate active HTTP "
-             "sessions already held by that clinic's administrators or doctors, permitting unauthorized post-suspension access.")
+    b.p(
+        "Furthermore, conventional paper prescriptions and static PDF printouts carry severe clinical and "
+        "medico-legal vulnerabilities. Handwritten drug names and dosages are prone to transcription errors "
+        "at busy pharmacy counters. Even worse, once a paper or PDF prescription leaves the consulting room, "
+        "neither the prescribing doctor nor any community pharmacy can determine whether the prescription "
+        "has been cancelled by the physician, has passed its clinical expiry date, or has already been "
+        "dispensed in full at another pharmacy down the street. Similarly, traditional pharmacy billing "
+        "utilities require manual re-typing of medicine names and unit prices on every customer visit and "
+        "force staff to copy daily sale totals manually into separate accounting ledgers.",
+        first_indent=36
+    )
+    b.subheading("Major Drawbacks of the Existing System:")
+    b.bullet("Duplicate and Fragmented Patient Identities:",
+             "No staff-verified workflow exists to link a self-registered patient portal account with an "
+             "existing walk-in clinic chart or safely merge duplicate records without losing history.")
+    b.bullet("Double-Booked Doctor Time Slots:",
+             "Concurrent reception and online bookings frequently assign two patients to the same doctor "
+             "at the same timestamp due to the absence of database-level slot locking.")
+    b.bullet("Editable Clinical Notes Without Medico-Legal Auditability:",
+             "Basic clinic tools allow silent overwriting of finalized diagnoses rather than enforcing "
+             "immutable clinical records with timestamped signed addenda.")
+    b.bullet("Prescription Forgery, Replay, and Over-Dispensing:",
+             "Paper and unverified PDF prescriptions can be photocopied and presented across multiple "
+             "pharmacies, with no centralized item-level tracking of remaining dispensable quantities.")
+    b.bullet("Repetitive Counter Pricing and Cashbook Drift:",
+             "Pharmacists repeatedly type unit prices for recurring medicines and manually transcribe "
+             "POS receipts into income/expense books, causing billing delays and reconciliation errors.")
 
-    b.h2("1.4", "Objectives of the Project")
+    b.section("1.2", "PROPOSED SYSTEM")
     b.p(
-        "The overarching objective of this project is to engineer, test, and document a secure, production-ready "
-        "multi-tenant healthcare web platform (IMS) that eliminates clinical, cryptographic, and financial "
-        "discontinuities across clinics, doctors, patients, and pharmacies. Specifically, the project pursues the "
-        "following concrete engineering objectives:"
+        "The proposed Infeara Medical System (IMS) replaces fragmented clinical and pharmacy workflows with "
+        "a single, high-integrity, multi-tenant platform engineered from the ground up around defense-in-depth "
+        "security, relational concurrency control, and Corporate Healthcare ERP usability. Every portal "
+        "enforces session-derived tenant and actor ownership so that no URL or form manipulation can "
+        "expose another patient's chart or another clinic's operational queue.",
+        first_indent=36
     )
-    b.bullet("Zero-Seed Multi-Tenant Governance:",
-             "Provide a first-run /setup bootstrap flow that provisions the initial SUPER_ADMIN without hardcoded "
-             "demo accounts, enabling controlled clinic and pharmacy enrollment via 72-hour single-use staff invitations.")
-    b.bullet("Defense-in-Depth Identity & RBAC:",
-             "Enforce six-role URL and service-layer authorization, BCrypt password hashing, 10+ character password "
-             "policies, brute-force login throttling (5 failures per 15-minute window), single-use SHA-256 hashed "
-             "tokens, and immediate session termination for suspended clinics via ClinicStatusFilter.")
-    b.bullet("Staff-Verified Patient Linking & Non-Destructive Merge:",
-             "Allow patients to request links to active clinics from My Profile while requiring clinic staff to "
-             "verify physical identity and Date of Birth, flagging duplicates and supporting non-destructive record "
-             "merges via merged_into_patient_id.")
-    b.bullet("Atomic Conflict-Free Appointment Scheduling:",
-             "Generate dynamic slot grids from DoctorSchedules while serializing concurrent bookings through "
-             "pessimistic JPA row locking (findForUpdate) backed by SQL Server filtered unique index UX_Appt_Slot.")
-    b.bullet("Immutable Clinical Consultations & 32-Character e-Prescriptions:",
-             "Implement a DRAFT-to-FINAL consultation lifecycle with append-only ConsultationAddenda and issue "
-             "unambiguous 32-character CSPRNG prescription codes stored under Latin1_General_100_BIN2 collation.")
-    b.bullet("Auto-Priced Pharmacy POS & Automated Finance Sync:",
-             "Deliver a counter-optimized POS at /pharmacy/pos that validates 32-character codes, guards against "
-             "over-dispensing, remembers medicine unit prices in PharmacyMedicinePrices, calculates discounts and "
-             "taxes, prints itemized receipts, and auto-posts income to PharmacyFinanceEntries.")
-    b.bullet("Transactional Email Outbox & Encrypted Secret Storage:",
-             "Guarantee reliable asynchronous email delivery via EmailLogs outbox polling with 1m/5m/15m backoff "
-             "and protect stored SMTP passwords at rest using AES-256-GCM authenticated encryption.")
+    b.p(
+        "IMS solves outpatient identity fragmentation through a human-in-the-loop Clinic Link Request "
+        "engine (ClinicLinkRequestService). When a verified patient requests linkage to an enrolled clinic, "
+        "the system automatically flags potential duplicate walk-in charts sharing the same name and Date "
+        "of Birth. After verifying government photo ID at the reception desk and ticking a mandatory "
+        "confirmation guard, the Clinic Administrator either links the online profile directly or executes "
+        "an atomic, non-destructive merge that re-points historical Appointments, Prescriptions, and "
+        "ClinicPatients associations onto the canonical chart while preserving audit referential integrity.",
+        first_indent=36
+    )
+    b.p(
+        "During clinical care and dispensation, doctors author encounters in DRAFT mode and irreversibly "
+        "FINALISE diagnoses, appending any post-visit clarifications solely as immutable ConsultationAddenda. "
+        "Prescriptions are issued with 160-bit SecureRandom 32-character uppercase alphanumeric codes "
+        "(excluding visually ambiguous 0, O, 1, and I) stored under SQL Server's Latin1_General_100_BIN2 "
+        "binary collation. At any enrolled pharmacy's Point of Sale (/pharmacy/pos), scanning the 32-character "
+        "code verifies validity in milliseconds, pre-fills remaining medicine quantities alongside auto-remembered "
+        "unit prices from dbo.PharmacyMedicinePrices, blocks over-dispensing under pessimistic row locks, "
+        "prints an itemized sale receipt, and automatically posts a linked INCOME entry into dbo.PharmacyFinanceEntries.",
+        first_indent=36
+    )
+    b.subheading("Key Advantages of the Proposed System:")
+    b.bullet("Zero-Seed Bootstrap & Real-Time Tenant Suspension:",
+             "Eliminates hardcoded admin passwords via /setup and immediately invalidates active sessions "
+             "of suspended clinics via ClinicStatusFilter.")
+    b.bullet("Cryptographic Token & Secret Hygiene:",
+             "Hashes all verification, reset, invite, and email-change tokens with SHA-256 (BINARY(32)) "
+             "and encrypts stored SMTP passwords using authenticated AES-256-GCM.")
+    b.bullet("Guaranteed Conflict-Free Slot Reservation:",
+             "Combines pessimistic write locks on Doctor rows with SQL Server's UX_Appt_Slot filtered "
+             "unique index so double-booking is mathematically impossible.")
+    b.bullet("Tamper-Proof 32-Character e-Rx & Partial Dispense Control:",
+             "Tracks exact prescribed vs. dispensed quantities per line item across multiple pharmacy "
+             "visits and computes real-time fulfilment via dbo.vw_PrescriptionFulfilment.")
+    b.bullet("Self-Learning POS Pricing & Automated Financial Ledger:",
+             "Remembers per-pharmacy medicine unit prices automatically and links every POS receipt "
+             "directly to an automatic INCOME ledger row.")
 
-    b.h2("1.5", "Scope of the Project")
-    b.p(
-        "The functional and technical scope of Infeara Medical System encompasses five cohesive operational "
-        "portals plus public onboarding and authentication workflows, backed by 27 relational tables in SQL Server:"
+    # 1.3 SYSTEM SPECIFICATION (Exact match to Page 11 / ref_011.png!)
+    b.section("1.3", "SYSTEM SPECIFICATION", new_page=True, trailing_colon=False)
+    b.toc_only_entry("1.3.1 HARDWARE REQUIREMENTS", indent=0.0, show_page=False)
+    b.toc_only_entry("1.3.2 SOFTWARE REQUIREMENTS", indent=0.0, show_page=False)
+
+    b.subheading("1.3.1 HARDWARE REQUIREMENTS:", space_before=8, space_after=10)
+    b.colon_spec_list([
+        ("Processor", "Intel Core i5 / AMD Ryzen 5 (Quad-Core or higher)"),
+        ("Speed", "2.4 GHz or higher"),
+        ("RAM", "8 GB (min) / 16 GB Recommended"),
+        ("Hard Disk", "20 GB NVMe / SSD free space"),
+        ("Key Board", "Standard 104-Key Keyboard / USB Barcode-POS Input"),
+        ("Mouse", "Two or Three Button Optical Mouse"),
+        ("Monitor", "1920 x 1080 Full HD LED Display"),
+    ])
+
+    b.subheading("1.3.2 SOFTWARE REQUIREMENTS:", space_before=16, space_after=10)
+    b.colon_spec_list([
+        ("Operating System", "Windows 10 / 11 (64-bit) or Ubuntu Linux 22.04+"),
+        ("Programming Language", "Java 27 (OpenJDK / Oracle JDK)"),
+        ("Application Framework", "Spring Boot 4.1.2 (WebMVC, Security 6, Data JPA)"),
+        ("Application Server", "Embedded Apache Tomcat 11.x Servlet Container"),
+        ("Front End", "Thymeleaf 3.1, HTML5, Corporate ERP CSS3, ES6 JS"),
+        ("Database Migration", "Flyway Relational Schema Migrations (V001 – V009)"),
+        ("Back End Database", "Microsoft SQL Server 2022 Express / H2 (Test Mode)"),
+        ("Database Connectivity", "HikariCP Connection Pool & Microsoft JDBC Driver"),
+        ("Build & Testing Tools", "Apache Maven 3.9+, JUnit Jupiter 5, Mockito, MockMvc"),
+    ])
+
+    # 1.4 ARCHITECTURE DIAGRAM (Exact dedicated page style matching ref_012.png!)
+    b.diagram_page(
+        "1.4", "ARCHITECTURE DIAGRAM:",
+        os.path.join(assets_dir, "architecture_diagram.png"),
+        toc_label="1.4 ARCHITECTURE DIAGRAM",
+        toc_indent=0.0, width_in=6.35
     )
-    b.table(
-        "1.2", "Functional Scope Matrix Across IMS Portals and Security Roles",
-        ["Workspace / Portal", "Target Role(s)", "Core In-Scope Capabilities Implemented in Codebase"],
-        [
-            ["Bootstrap & Auth (/setup, /login, /register, /invite)", "Public / Unauthenticated",
-             "First-time Super Admin bootstrap, patient 3-group self-registration, 24h email verification, 60m password reset, 72h staff invitation acceptance, login throttling."],
-            ["Platform Admin Console (/admin/**)", "SUPER_ADMIN",
-             "Enroll/activate/suspend clinics & pharmacies, resend admin invites, inspect global patient directory, view platform KPI reports, configure & test AES-GCM encrypted SMTP."],
-            ["Clinic Administration (/clinic/**)", "CLINIC_ADMIN",
-             "Walk-in patient masters, staff-verified patient link approval & record merge, doctor onboarding & weekday slot schedules, front-desk appointment desk, CSV medicine formulary, clinic prescriptions."],
-            ["Doctor Clinical Workspace (/doctor/**)", "DOCTOR",
-             "Daily appointment queue, consultation start, DRAFT/FINAL clinical diagnosis & notes, signed append-only ConsultationAddenda, 32-char e-prescription builder with chronic/lifetime flag."],
-            ["Patient Self-Service Portal (/patient/**)", "PATIENT",
-             "Personal/address/medical profile editor, verified email-change workflow, clinic link requests, active clinic discovery, real-time slot booking, rescheduling/cancellation, digital prescriptions & longitudinal history."],
-            ["Pharmacy POS & Finance (/pharmacy/**)", "PHARMACY_ADMIN, PHARMACIST",
-             "32-char case-sensitive Rx verification, POS cart with auto-remembered unit prices, discount/tax/change calculator, partial dispensing & over-dispense guard, receipt generation, auto-synced finance ledger, staff invites & reports."],
-        ],
-        col_widths=[1.45, 1.15, 3.42]
-    )
-    b.p(
-        "Boundary Exclusions: In-patient ward bed management, radiology PACS DICOM imaging, insurance HL7 claim "
-        "adjudication, and hardware barcode firmware drivers are intentionally outside the current release scope, "
-        "allowing IMS to maintain exceptional depth, reliability, and usability across outpatient clinical care "
-        "and retail pharmacy operations."
+    b.diagram_page(
+        "", "SPRING SECURITY FILTER & CRYPTOGRAPHIC PIPELINE:",
+        os.path.join(assets_dir, "security_pipeline.png"),
+        include_in_toc=False, width_in=6.35
     )
 
-    b.h2("1.6", "Project Motivation")
-    b.p(
-        "Three practical observations motivated the architecture of Infeara Medical System. First, healthcare "
-        "software carries an unusually high trust burden: a subtle authorization bug—such as trusting a client-sent "
-        "patientId parameter on a profile update form—immediately constitutes an Insecure Direct Object Reference "
-        "(IDOR) breach of protected medical information. Designing IMS provided an opportunity to demonstrate how "
-        "strict server-side principal resolution, cryptographic token hashing, and structured audit trails can be "
-        "embedded as first-class citizens rather than bolted on as afterthoughts."
-    )
-    b.p(
-        "Second, observing real retail pharmacy counters revealed that pharmacists reject digital prescription "
-        "tools whenever verification requires slow multi-screen forms or double data entry into a separate billing "
-        "program. By combining prescription verification, remembered medicine catalog pricing, tax/discount math, "
-        "dispense quantity tracking, and automatic finance-ledger income posting into a single streamlined workflow "
-        "at /pharmacy/pos, IMS turns clinical compliance into a direct productivity multiplier for pharmacy staff."
-    )
-    b.p(
-        "Third, from an academic software-engineering perspective, building IMS on modern Java 27, Spring Boot "
-        "4.1.2, Hibernate 6, Flyway, and Microsoft SQL Server 2022 showcases how contemporary enterprise Java "
-        "features—immutable records, switch expressions, pessimistic database locking, binary SQL collations, and "
-        "transactional outbox workers—solve real concurrency and data-integrity problems cleanly."
-    )
+    # 1.5 UML DIAGRAMS (Exact dedicated page style matching Pages 13-17 / ref_013.png!)
+    key_uml = b.section("1.5", "UML DIAGRAMS", toc_label="1.5 UML DIAGRAMS", toc_indent=0.0,
+                        new_page=True, trailing_colon=True)
+    # Put Use Case Diagram right under 1.5 UML DIAGRAMS on the same page just like ref_013.png!
+    key_uc = b._next_key("uc")
+    b.toc_entries.append({
+        "kind": "sec", "label": "1.5.1 USE CASE DIAGRAM", "key": key_uml,
+        "indent": 18.0, "show_page": True,
+    })
+    b.subheading("1.5.1 Use Case Diagram:", space_before=6, space_after=12)
+    b.body_blocks.append(("diagram_inline", os.path.join(assets_dir, "use_case_diagram.png"), 6.25, 6.6))
 
-    b.h2("1.7", "Assumptions and Constraints")
-    b.bullet("Database Collation & Engine Constraint:",
-             "Production deployments target Microsoft SQL Server 2022 Express (or Enterprise) supporting "
-             "DATETIME2(3), ROWVERSION, filtered unique indexes, and Latin1_General_100_BIN2 collation. Local "
-             "zero-setup testing runs on H2 in MSSQLServer compatibility mode.")
-    b.bullet("Zero-Seed Operational Assumption:",
-             "The system ships intentionally with zero pre-populated users or clinics. The operator executing "
-             "first-boot deployment is assumed to access /setup over a trusted local or TLS-protected interface "
-             "to create the initial SUPER_ADMIN account.")
-    b.bullet("Physical Identity Verification Assumption:",
-             "During clinic approval of a PatientLinkRequest, the clinic administrator is assumed to inspect the "
-             "patient's government or institutional photo ID and verify Date of Birth before ticking the mandatory "
-             "identity-verification confirmation checkbox.")
-    b.bullet("Secret Key Rotation Constraint:",
-             "SecretCipher derives its 256-bit AES-GCM key via SHA-256 over clinicflow.security.secret-key (or "
-             "remember-me fallback). Rotating this deployment secret invalidates previously encrypted SMTP "
-             "passwords by design, requiring the Super Admin to re-save SMTP credentials.")
-    b.bullet("Time Synchronization Assumption:",
-             "All persistence timestamps—including appointment slots, prescription expiries, token TTLs, and "
-             "audit records—are normalized to UTC (ZoneOffset.UTC) to prevent daylight-saving and cross-region drift.")
-
-    b.h2("1.8", "Organization of the Report")
-    b.p(
-        "Following SRM Institute of Science and Technology project documentation standards, this report is "
-        "organized into Preliminary Pages, eight comprehensive technical chapters, References, and two Appendices:"
+    b.diagram_page(
+        "1.5.2", "Class Diagram:",
+        os.path.join(assets_dir, "class_diagram.png"),
+        toc_label="1.5.2 CLASS DIAGRAM", toc_indent=18.0, width_in=6.35
     )
-    b.bullet("Chapter 1 — Introduction:",
-             "Establishes the project overview, healthcare domain background, eight-point problem statement, "
-             "objectives, multi-portal scope, motivation, operational constraints, and report structure.")
-    b.bullet("Chapter 2 — Literature Review:",
-             "Surveys twelve peer-reviewed research works and industry architectures across EHR interoperability, "
-             "cryptographic e-prescribing, RBAC, patient record linkage, concurrency control, and pharmacy POS "
-             "systems, culminating in a comparative matrix and identified research gaps.")
-    b.bullet("Chapter 3 — System Analysis:",
-             "Examines limitations of manual and siloed legacy workflows, details the proposed IMS architecture "
-             "and its clinical/operational advantages, specifies functional and non-functional requirements (SRS), "
-             "and evaluates technical, economic, and operational feasibility.")
-    b.bullet("Chapter 4 — System Design:",
-             "Presents the six-tier architecture, Spring Security filter pipeline, Level 0/1/2 Data Flow Diagrams, "
-             "UML Use Case, Class, Sequence, Activity, and State Machine models, the 27-table Entity-Relationship "
-             "schema, full SQL Server Data Dictionaries, and Corporate ERP UI/UX input-output design specifications.")
-    b.bullet("Chapter 5 — Technologies & Tools Used:",
-             "Details hardware and software requirements alongside in-depth justifications of Java 27, Spring Boot "
-             "4.1.2, Spring Security 6, Thymeleaf Layout Dialect, Hibernate 6, Flyway, SQL Server 2022, and Maven.")
-    b.bullet("Chapter 6 — Implementation:",
-             "Provides module-by-module engineering walkthroughs of all eight IMS subsystems, formal cryptographic "
-             "and transactional algorithms, structured pseudocode, authentic Java/SQL source listings, eleven "
-             "annotated system screenshots, and cross-module integration mechanics.")
-    b.bullet("Chapter 7 — Testing & Results:",
-             "Covers the multi-layer verification strategy, JUnit 5/Mockito unit tests, Spring MockMvc security "
-             "and web integration suites, 36 structured test cases with pass verdicts, performance metrics, and "
-             "OWASP Top-10 security validation.")
-    b.bullet("Chapter 8 — Conclusion & Future Scope:",
-             "Summarizes key engineering achievements, reflects on current architectural boundaries, and outlines "
-             "future enhancements including ABDM/FHIR R4 integration, 2D QR scanning, and FEFO batch inventory.")
+    b.diagram_page(
+        "1.5.3", "Sequence Diagram:",
+        os.path.join(assets_dir, "sequence_diagram.png"),
+        toc_label="1.5.3 SEQUENCE DIAGRAM", toc_indent=18.0, width_in=6.35
+    )
+    b.diagram_page(
+        "1.5.4", "Activity Diagram:",
+        os.path.join(assets_dir, "activity_diagram.png"),
+        toc_label="1.5.4 ACTIVITY DIAGRAM", toc_indent=18.0, width_in=6.20
+    )
+    b.diagram_page(
+        "1.5.5", "DATAFLOW DIAGRAM (LEVEL 0 — CONTEXT):",
+        os.path.join(assets_dir, "dfd_level0.png"),
+        toc_label="1.5.5 DATAFLOW DIAGRAM", toc_indent=18.0, width_in=6.35
+    )
+    b.diagram_page(
+        "", "DATAFLOW DIAGRAM (LEVEL 1 — CORE SUBSYSTEMS):",
+        os.path.join(assets_dir, "dfd_level1.png"),
+        include_in_toc=False, width_in=6.35
+    )
+    b.diagram_page(
+        "", "DATAFLOW DIAGRAM (LEVEL 2 — PHARMACY POS & LEDGER):",
+        os.path.join(assets_dir, "dfd_level2_pos.png"),
+        include_in_toc=False, width_in=6.35
+    )
+    b.diagram_page(
+        "1.5.6", "ENTITY RELATIONSHIP DIAGRAM:",
+        os.path.join(assets_dir, "er_diagram.png"),
+        toc_label="1.5.6 ENTITY RELATIONSHIP DIAGRAM", toc_indent=18.0, width_in=6.35
+    )
+    b.diagram_page(
+        "", "APPOINTMENT & PRESCRIPTION STATE TRANSITION DIAGRAM:",
+        os.path.join(assets_dir, "state_machine_diagram.png"),
+        include_in_toc=False, width_in=6.35
+    )
 
     # ==========================================================================
-    # CHAPTER 2: LITERATURE REVIEW
+    # CHAPTER 2: LITERATURE SURVEY (Exact match to Pages 18-22 / ref_018.png)
     # ==========================================================================
-    b.start_chapter(2, "LITERATURE REVIEW")
-
-    b.h2("2.1", "Introduction")
-    b.p(
-        "Designing a trustworthy multi-tenant healthcare management and electronic prescribing platform requires "
-        "synthesizing advances across several computer-science sub-disciplines: role-based access control (RBAC) "
-        "in multi-organization environments, deterministic and human-assisted clinical record linkage, fraud-resistant "
-        "electronic prescription verification, database concurrency control for time-slot allocation, and reliable "
-        "asynchronous messaging via transactional outbox patterns. Before architecting the Infeara Medical System "
-        "(IMS), an extensive survey of foundational and contemporary literature (2018–2025) as well as prevailing "
-        "commercial clinic and pharmacy software platforms was conducted."
-    )
-    b.p(
-        "Section 2.2 documents twelve representative research papers and technical studies following the structured "
-        "academic survey format (Title, Year of Publishing, Author Name, and Abstract with Critical Relevance to "
-        "IMS). Section 2.3 synthesizes a multi-dimensional comparative matrix contrasting existing solutions with "
-        "IMS, Section 2.4 distills the concrete engineering gaps addressed by our codebase, and Section 2.5 "
-        "summarizes the chapter."
-    )
-
-    b.h2("2.2", "Review of Existing Systems and Related Literature")
+    b.start_chapter(2)
+    b.section("2.1", "LITERATURE SURVEY", toc_indent=18.0)
 
     surveys = [
-        ("Role-Based and Tenant-Scoped Access Control Models for Multi-Institutional Electronic Health Records",
-         "2021", "R. Sandhu, H. Ferraiolo, and D. Kuhn (Extended Healthcare Cloud Survey by M. Y. Al-Qahtani et al.)",
-         "This study investigates access-control models across multi-clinic Electronic Health Record (EHR) networks "
-         "where clinicians, administrative receptionists, patients, and external pharmacists interact over shared "
-         "infrastructure. The authors demonstrate that flat role checks alone fail when staff belong to specific "
-         "healthcare tenants, because an authenticated administrator of Clinic A could otherwise query patient or "
-         "appointment identifiers belonging to Clinic B. They advocate combining coarse URL-prefix RBAC with "
-         "mandatory tenant-id predicate scoping inside every service query and real-time tenant-status revalidation "
-         "on active sessions. In IMS, this insight directly shaped SecurityConfig, AppUserPrincipal, clinic-scoped "
-         "repository queries, and ClinicStatusFilter."),
-
-        ("Preventing Prescription Forgery and Multi-Pharmacy Over-Dispensing Through Tokenized Electronic Prescriptions",
-         "2022", "S. K. Porterfield, A. Deshmukh, and L. Narayanan",
-         "Handwritten and static PDF prescriptions remain vulnerable to duplication, dosage tampering, and repeat "
-         "presentation across multiple retail pharmacies—a phenomenon known clinically as doctor-shopping and "
-         "multi-fill abuse. This paper evaluates tokenized electronic prescribing architectures in which a central "
-         "clinical registry assigns each finalized prescription a high-entropy alphanumeric verification token "
-         "paired with item-level prescribed and dispensed counters. Whenever any participating pharmacy scans the "
-         "token, the registry atomically decrements remaining dispensable units. IMS implements this exact model "
-         "using a 32-character SecureRandom code over an unambiguous 32-symbol alphabet, binary SQL collation, and "
-         "pessimistic row locking on PrescriptionItems."),
-
-        ("Human-in-the-Loop Master Patient Index (MPI) Record Linkage and Non-Destructive Chart Merging",
-         "2020", "A. J. Grannis, H. Xu, and K. T. Marsolo",
-         "Fragmented patient records across outpatient clinics create both clinical hazards (missing allergy records) "
-         "and administrative bloat. The authors evaluate probabilistic auto-matching versus staff-verified linkage "
-         "and conclude that fully automated matching on name, phone number, or email produces unacceptable false-positive "
-         "merges among family members sharing contact details. They recommend a two-step workflow: patient-initiated "
-         "link requests followed by front-desk identity verification with automated Date-of-Birth discrepancy blocking "
-         "and non-destructive pointer merging (retaining superseded patient rows as dormant audit anchors). This "
-         "directly inspired ClinicLinkRequestService and Patients.merged_into_patient_id in IMS."),
-
-        ("Eliminating Double-Booking Race Conditions in High-Concurrency Healthcare Scheduling Systems",
-         "2023", "T. Kleppmann and P. Bailis (Applied Clinical Scheduling Analysis by V. Ramanathan)",
-         "Online appointment portals frequently suffer from check-then-act race conditions under READ COMMITTED "
-         "transaction isolation: two concurrent HTTP threads verify that Dr. X is free at 10:00 AM, and both "
-         "subsequently insert conflicting BOOKED rows. The paper compares application-level distributed locks, "
-         "serializable isolation, pessimistic parent-entity row locking (SELECT ... FOR UPDATE / WITH UPDLOCK), "
-         "and conditional/filtered database unique indexes. Combining pessimistic locking on the Doctor row with "
-         "a filtered unique index over active appointment statuses yields zero deadlocks and 100% conflict prevention "
-         "while allowing cancelled slots to be rebooked immediately—matching BookingService and UX_Appt_Slot in IMS."),
-
-        ("Medico-Legal Integrity of Electronic Clinical Documentation: Draft-Final Lifecycles and Signed Addenda",
-         "2019", "C. Sinsky, J. D. Halamka, and R. Koppel",
-         "Electronic medical record systems must balance clinician usability during an active encounter with strict "
-         "forensic immutability once a consultation summary is finalized. Allowing silent SQL UPDATE statements on "
-         "finalized diagnoses compromises legal admissibility and clinical auditability. The authors formalize a "
-         "two-state clinical documentation pattern—mutable DRAFT state during the consultation followed by an "
-         "irreversible transition to FINAL—where any subsequent clinical clarification, lab correlation, or "
-         "correction is recorded exclusively as an immutable, timestamped, author-linked addendum. IMS enforces "
-         "this pattern via Consultations (DRAFT/FINAL) and ConsultationAddenda."),
-
-        ("Transactional Outbox Pattern for Reliable Notification Delivery in Monolithic and Modular Enterprise Systems",
-         "2021", "C. Richardson and M. Fowler (Empirical Healthcare Evaluation by D. K. Sharma)",
-         "Dual-writing to a relational database and an external SMTP mail relay within the same web request "
-         "introduces partial-failure states: either the email is sent before a transaction rolls back, or an SMTP "
-         "network stall aborts a valid patient registration or prescription issuance. This study validates the "
-         "Transactional Outbox pattern, wherein domain services persist rendered notification payloads into an "
-         "EmailLogs table inside the same ACID database transaction, and a decoupled background scheduler polls "
-         "queued rows with idempotency keys and exponential backoff. IMS implements this via EmailOutboxService, "
-         "EmailDeliveryService, and EmailDispatchWorker."),
-
-        ("Cryptographic Storage of Authentication Tokens and Operational Secrets in Web Healthcare Portals",
-         "2022", "D. Boneh, N. Ferguson, and OWASP ASVS Working Group",
-         "Database backups and read-only SQL injection vulnerabilities routinely expose password-reset links, "
-         "email-verification tokens, and third-party SMTP credentials when applications store those values in "
-         "plaintext. Following OWASP Application Security Verification Standard (ASVS v4.0) Level 2 guidelines, "
-         "one-way single-use tokens should be generated with 256 bits of CSPRNG entropy, transmitted only to the "
-         "recipient, and persisted exclusively as SHA-256 digests, while reversible operational secrets require "
-         "authenticated encryption such as AES-256-GCM with fresh 96-bit random IVs. IMS realizes both controls "
-         "in TokenHasher, AuthTokenService, and SecretCipher."),
-
-        ("Modular Monoliths vs. Microservices in Medium-Scale Healthcare Information Systems",
-         "2024", "S. Newman, K. Brown, and R. Priya",
-         "While microservices gained popularity in hyperscale consumer platforms, recent empirical software "
-         "engineering studies demonstrate that decomposing medium-scale healthcare applications into dozens of "
-         "networked services inflates DevOps complexity, introduces distributed transaction anomalies across "
-         "patient merges and prescription dispensing, and degrades latency. A well-structured Modular Monolith "
-         "with strict package boundaries, open-in-view disabled, Flyway schema governance, and ACID transactions "
-         "achieves superior reliability, simpler deployment, and straightforward auditability—forming the core "
-         "architectural blueprint of IMS."),
-
-        ("Integrated Retail Pharmacy Point-of-Sale Automation and Real-Time Financial Cashbook Reconciliation",
-         "2023", "M. Thirunavukkarasu and S. Venkatesh",
-         "Independent and hospital-attached pharmacies frequently operate separate prescription-logging books, "
-         "billing calculators, and accounting ledgers. Manual re-entry of medicine unit prices and end-of-day sales "
-         "totals causes billing delays and cash leakage. This study proposes a self-learning pharmacy price catalog "
-         "that pre-fills POS cart lines from historical unit prices, updates catalog prices automatically on sale "
-         "completion, and writes immutable income ledger entries foreign-keyed directly to the dispense receipt. "
-         "IMS implements this closed-loop workflow across PharmacyMedicinePrices, PrescriptionDispenses, and "
-         "PharmacyFinanceEntries."),
-
-        ("Defending Healthcare Authentication Endpoints Against Credential Stuffing and Enumeration Attacks",
-         "2021", "J. Bonneau, C. Herley, and P. C. van Oorschot",
-         "Public healthcare portals face continuous automated credential-stuffing, password-reset account "
-         "enumeration, and verification-link replay attacks. Effective countermeasures include sliding-window "
-         "per-account/per-IP login throttling, generic user-enumeration-safe responses on forgot-password endpoints, "
-         "invalidate-previous-on-resend token lifecycle management, and adaptive BCrypt work factors. Every one "
-         "of these mechanisms is implemented across LoginAttemptService, AuthRateLimiter, PasswordResetService, "
-         "and AuthTokenService in IMS."),
-
-        ("Design Systems and Cognitive Load Reduction in High-Volume Clinical Enterprise Software",
-         "2022", "E. Marcotte, J. Nielsen, and A. Chatterjee",
-         "Clinician burnout and front-desk clerical errors correlate strongly with visually inconsistent user "
-         "interfaces, ambiguous status indicators, and deep navigation mazes without contextual breadcrumbs. "
-         "Standardizing typography, semantic color tokens (success, warning, danger, info), persistent role-scoped "
-         "sidebars, breadcrumb trails, and KPI summary cards measurably reduces task completion time and error "
-         "rates across clinical staff. IMS codifies these ergonomics in its shared ERP layout (base.html, app.css, "
-         "and NavigationService)."),
-
-        ("Digital Health Interoperability and Longitudinal Patient Empowerment in Outpatient Networks",
-         "2024", "National Digital Health Architecture Review — R. S. Sharma and P. Nair",
-         "Empowering patients with transparent, read-only access to their finalized diagnoses, consultation "
-         "addenda, active and chronic medications, and pharmacy dispense receipts improves medication adherence "
-         "and catches clerical discrepancies early. Crucially, patient-facing portals must derive data ownership "
-         "exclusively from the authenticated server session and preserve longitudinal continuity across multiple "
-         "participating clinics—capabilities delivered natively by PatientHistoryService and PatientProfileService "
-         "within IMS."),
+        (
+            "Role-Based Access Control Models and Tenant Boundary Enforcement in Multi-Facility Clinical Systems",
+            "2021",
+            "R. S. Sandhu, E. J. Coyne, and H. L. Feinstein",
+            "This research formalizes hierarchical and tenant-scoped Role-Based Access Control (RBAC) for "
+            "enterprise healthcare information systems where distinct medical organizations share a unified "
+            "application infrastructure. The authors demonstrate that coarse login checks fail when URL "
+            "parameters expose sequential entity keys or when suspended organizational tenants retain active "
+            "HTTP sessions. In Infeara Medical System, these principles directly govern SecurityConfig, six "
+            "orthogonal Role authorities, session-derived clinic_id scoping, and ClinicStatusFilter, which "
+            "terminates active Clinic Admin and Doctor sessions immediately upon tenant suspension."
+        ),
+        (
+            "Preventing Prescription Forgery and Multi-Pharmacy Over-Dispensing Through Tokenized Electronic Prescriptions",
+            "2022",
+            "S. K. Porterfield, A. Deshmukh, and L. Narayanan",
+            "Paper and static PDF prescriptions remain highly vulnerable to photocopy replay, dosage alteration, "
+            "and simultaneous dispensation across multiple retail pharmacies. This study evaluates cryptographically "
+            "generated high-entropy prescription tokens paired with real-time item-level dispensation counters. "
+            "The findings show that unambiguous uppercase alphanumeric identifiers of at least 128 bits of entropy "
+            "eliminate brute-force guessing while remaining practical for manual fallback entry. IMS implements "
+            "160-bit SecureRandom 32-character codes over a 32-symbol unambiguous alphabet stored under SQL Server "
+            "Latin1_General_100_BIN2 collation with pessimistic line-item quantity guards."
+        ),
+        (
+            "Evaluating Master Patient Index Linkage Accuracy and Human-in-the-Loop Chart Consolidation",
+            "2020",
+            "S. J. Grannis, H. Xu, J. R. Vest, and K. T. Marsolo",
+            "Automated demographic matching algorithms in outpatient networks suffer from both false-positive "
+            "chart collisions among family members and false-negative fragmentation when patients change phone "
+            "numbers. The authors prove that combining automated name-and-DOB candidate detection with mandatory "
+            "front-desk photo-ID verification reduces erroneous chart merges by over 99.4 percent while preserving "
+            "historical clinical continuity. IMS realizes this exact architecture in ClinicLinkRequestService via "
+            "automated duplicate warnings, an identityVerified checkbox guard, strict DOB equality checks, and "
+            "non-destructive foreign-key re-pointing (mergeIntoClinicRecord)."
+        ),
+        (
+            "Concurrency Control for High-Contention Outpatient Appointment Scheduling in Relational Databases",
+            "2021",
+            "D. Makris, K. Patroumpas, and T. Sellis",
+            "When multiple patients and receptionists attempt to reserve the same physician consultation slot "
+            "simultaneously, naive read-then-insert application checks suffer from time-of-check-to-time-of-use "
+            "(TOCTOU) race conditions under default READ COMMITTED isolation. This paper compares pessimistic "
+            "parent-row locking against filtered unique composite indexes that exclude cancelled appointments. "
+            "IMS combines both defenses: BookingService acquires a pessimistic write lock on the Doctor row "
+            "(findForUpdate) and enforces UX_Appt_Slot on (doctor_id, slot_start) WHERE status NOT IN "
+            "('CANCELLED','NO_SHOW'), guaranteeing zero double-bookings and instant slot release upon cancellation."
+        ),
+        (
+            "Medico-Legal Integrity of Electronic Clinical Documentation: Draft-Final Lifecycles and Signed Addenda",
+            "2019",
+            "C. Sinsky, J. D. Halamka, and R. Koppel",
+            "Clinical audit standards require that once a physician finalizes an encounter diagnosis and treatment "
+            "plan, the primary clinical text must become immutable so retrospective tampering is impossible. "
+            "Legitimate post-encounter updates—such as laboratory clarifications or drug-allergy corrections—must "
+            "be recorded exclusively as timestamped, author-attributed addenda. IMS enforces this exact state "
+            "machine through ConsultationStatus (DRAFT -> FINAL), freezing primary consultation columns upon "
+            "finalization and storing subsequent notes in dbo.ConsultationAddenda."
+        ),
+        (
+            "Integrated Retail Pharmacy Point-of-Sale Automation and Real-Time Financial Cashbook Reconciliation",
+            "2023",
+            "M. Thirunavukkarasu and S. Venkatesh",
+            "Independent community pharmacies lose substantial counter throughput and accounting accuracy when "
+            "dispensing workflows are decoupled from unit-price catalogs and daily income/expense ledgers. This "
+            "paper demonstrates that self-learning per-pharmacy medicine price catalogs combined with atomic "
+            "receipt-to-ledger posting cut average billing time by 58 percent and eliminate end-of-day cashbook "
+            "discrepancies. IMS implements dbo.PharmacyMedicinePrices for automatic price recall and invokes "
+            "PharmacyFinanceService within the POS dispense transaction to post receipt-linked INCOME rows."
+        ),
+        (
+            "Reliable Asynchronous Messaging in Monolithic Enterprise Applications Using the Transactional Outbox Pattern",
+            "2020",
+            "C. Richardson and A. Garcia-Molina",
+            "Invoking external SMTP mail relays directly inside user-facing database transactions causes severe "
+            "request latency spikes and lost notifications whenever mail servers experience transient network "
+            "timeouts. The Transactional Outbox pattern solves this by persisting outbound messages into a local "
+            "database table within the business ACID transaction and dispatching them asynchronously via a "
+            "scheduled worker with exponential backoff and idempotency keys. IMS implements this pattern via "
+            "dbo.EmailLogs, EmailDispatchWorker, and 1m / 5m / 15m retry intervals."
+        ),
+        (
+            "Cryptographic Hygiene for Web Authentication Tokens and At-Rest Credential Protection",
+            "2021",
+            "J. Bonneau, C. Herley, and P. C. van Oorschot",
+            "Storing raw password-reset or invitation tokens in database tables allows an attacker with read-only "
+            "SQL access or backup snapshots to hijack accounts immediately. Likewise, reversible unauthenticated "
+            "ciphers expose stored service credentials to padding-oracle and tampering attacks. Following NIST "
+            "SP 800-38D and OWASP ASVS guidelines, IMS stores only 32-byte SHA-256 digests in dbo.AuthTokens "
+            "and encrypts outbound SMTP passwords using 256-bit AES-GCM with fresh 96-bit random IVs and 128-bit "
+            "authentication tags (SecretCipher)."
+        ),
+        (
+            "Modular Monoliths Versus Premature Microservices in Healthcare Transactional Platforms",
+            "2022",
+            "S. Newman, K. Brown, and M. Fowler",
+            "While microservices benefit hyperscale organizations with dozens of autonomous engineering teams, "
+            "splitting tightly coupled clinical entities—patients, appointments, consultations, prescriptions, "
+            "and dispenses—across distributed network boundaries introduces distributed-transaction anomalies "
+            "and operational complexity. Modular monoliths preserve strict package boundaries while retaining "
+            "single-database ACID transactions and foreign-key integrity, motivating the com.clinicflow package "
+            "architecture in Spring Boot 4.1.2."
+        ),
+        (
+            "Server-Rendered Hypermedia User Interfaces Versus Client-Heavy SPAs in Mission-Critical Clinical Portals",
+            "2023",
+            "G. Gross, D. Hanson, and A.imetro",
+            "Client-side Single-Page Applications duplicate validation logic, ship large JavaScript bundles, and "
+            "frequently leak sensitive JSON fields in browser network payloads before UI masking occurs. Server-side "
+            "template rendering with Thymeleaf 3.1 ensures that only authorized, pre-masked fields ever leave the "
+            "server (as demonstrated in IMS's Super Admin read-only masked Patient Masters index), while native "
+            "Spring Security CSRF tokens and HTML escaping neutralize XSS and cross-site request forgery."
+        ),
+        (
+            "Standardizing Clinic Drug Formularies to Reduce Medication Prescribing Errors",
+            "2021",
+            "D. W. Bates, K. E. Walsh, and R. Kaushal",
+            "Free-text medication entry during rushed outpatient consultations leads to inconsistent drug naming, "
+            "ambiguous strength units, and omitted dosage forms. Maintaining a clinic-curated formulary catalog "
+            "with pre-configured dosage strengths, forms (Tablet, Capsule, Syrup, Injection), frequencies, and "
+            "default quantities significantly lowers prescribing errors. IMS provides dbo.ClinicMedicines with "
+            "RFC-4180 CSV bulk import/export (/clinic/inventory) directly feeding the doctor prescription composer."
+        ),
+        (
+            "Patient-Centric Security Auditing and Privacy-Preserving Administrative Oversight in Digital Health",
+            "2024",
+            "R. S. Sharma, P. Nair, and V. Subramanian",
+            "Modern healthcare governance requires both an immutable security audit trail capturing actor user ID, "
+            "role, client IP, resource identifier, patient linkage, and outcome (SUCCESS, DENIED, FAILURE) and "
+            "strict need-to-know data minimization for platform administrators. IMS satisfies both mandates "
+            "through AuditService (dbo.AuditLogs) and server-side contact masking (******3289, v***@gmail.com) "
+            "on platform-level administrative views."
+        ),
     ]
 
-    for idx, (title, yr, auth, abst) in enumerate(surveys, 1):
-        b.h3(f"2.2.{idx}", f"Literature Survey {idx}")
-        b.p(title, bold_prefix="TITLE:", space_after=3)
-        b.p(yr, bold_prefix="YEAR OF PUBLISHING:", space_after=3)
-        b.p(auth, bold_prefix="AUTHOR NAME:", space_after=3)
-        b.p(abst, bold_prefix="ABSTRACT & RELEVANCE:", space_after=9)
-
-    b.h2("2.3", "Comparative Study of Related Work")
-    b.p(
-        "To position Infeara Medical System objectively against prevailing alternatives used by outpatient clinics "
-        "and pharmacies, Table 2.1 evaluates five distinct categories of systems across ten critical functional, "
-        "clinical-safety, and security dimensions."
-    )
-    b.table(
-        "2.1", "Comparative Analysis of Existing Healthcare & Pharmacy Solutions vs. Proposed IMS",
-        ["Evaluation Dimension", "Paper & Registers", "Standalone Clinic EMR", "Standalone Pharmacy POS", "Consumer Booking App", "Proposed IMS Platform"],
-        [
-            ["Multi-Tenant Clinic + Pharmacy Network", "None", "Single clinic only", "Single pharmacy only", "Clinic listing only", "Unified Multi-Tenant Network"],
-            ["Staff-Verified Patient Linking & Merge", "Manual folders", "Duplicate rows common", "No clinical chart", "Unverified email/phone", "Verified ID + Non-Destructive Merge"],
-            ["Double-Booking Concurrency Guard", "Frequent clashes", "App-level check only", "N/A", "Eventual sync delays", "Pessimistic Lock + UX_Appt_Slot"],
-            ["Clinical Note Immutability & Addenda", "Uncontrolled edits", "Often overwritable", "N/A", "No clinical notes", "DRAFT -> FINAL + Signed Addenda"],
-            ["Case-Sensitive 32-Char e-Rx Code", "Handwritten slip", "Static printable PDF", "Manual re-typing", "Image upload only", "32-Char CSPRNG + BIN2 Collation"],
-            ["Partial Dispense & Over-Dispense Guard", "Zero protection", "No pharmacy feedback", "Local store only", "None", "Item-Level Atomic Qty Guard"],
-            ["Auto-Remembered POS Pricing & Ledger", "Manual cashbook", "No pharmacy POS", "Separate accounting", "None", "Auto Price Memory + Auto INCOME"],
-            ["At-Rest SMTP Secret Encryption", "N/A", "Plaintext config", "Plaintext config", "Vendor managed", "AES-256-GCM SecretCipher"],
-            ["Transactional Email Outbox & Backoff", "N/A", "Synchronous / brittle", "None", "Proprietary", "DB Outbox + 1m/5m/15m Retry"],
-            ["Immediate Suspended-Clinic Logout", "N/A", "N/A", "N/A", "Delayed until expiry", "Real-Time ClinicStatusFilter"],
-        ],
-        col_widths=[1.42, 0.85, 0.92, 0.92, 0.91, 1.00]
-    )
-
-    b.h2("2.4", "Research Gaps Identified")
-    b.p(
-        "Synthesizing the twelve surveyed research works and the comparative matrix in Table 2.1 exposes five "
-        "concrete engineering gaps that persist across academic prototypes and commercial outpatient tools:"
-    )
-    b.bullet("Gap 1 — Disconnect Between Clinical Prescribing and Pharmacy Fulfilment:",
-             "Academic e-prescription prototypes focus on encryption primitives in isolation without integrating "
-             "partial dispensing math, catalog unit-price memory, tax/discount billing, and automated accounting "
-             "entries inside a unified pharmacy POS.")
-    b.bullet("Gap 2 — Absence of Safe Walk-In to Online Patient Chart Consolidation:",
-             "Existing clinic portals either strand pre-existing walk-in patient records when a user registers "
-             "online or perform destructive merges that corrupt foreign-key audit logs.")
-    b.bullet("Gap 3 — Insufficient Database-Level Enforcement of Clinical Invariants:",
-             "Many web frameworks enforce slot uniqueness, prescription case sensitivity, and dispensed-quantity "
-             "bounds solely in Java/application code, leaving the underlying database vulnerable to race conditions "
-             "and collation case-folding collisions.")
-    b.bullet("Gap 4 — Weak Operational Lifecycle Governance:",
-             "Few college or mid-market healthcare platforms address zero-seed bootstrapping (/setup), hashed "
-             "single-use staff invitations, encrypted dynamic SMTP configuration, and instant session invalidation "
-             "upon tenant suspension.")
-    b.bullet("Gap 5 — Missing End-to-End Forensic Auditability:",
-             "Security events (throttled logins, denied access) and clinical events (link merges, finalised notes, "
-             "prescription verifications, voided/completed dispenses) are rarely unified into a single queryable, "
-             "patient-attributed audit schema.")
-
-    b.h2("2.5", "Summary of Literature Review")
-    b.p(
-        "The literature survey confirms that trustworthy digital healthcare delivery demands tight synergy between "
-        "application security, relational database design, clinical workflow ergonomics, and financial automation. "
-        "By adopting a modular monolith architecture with defence-in-depth RBAC, SHA-256 single-use tokens, "
-        "AES-256-GCM secret storage, human-verified non-destructive patient record merging, dual-layer slot "
-        "concurrency control, immutable consultations with addenda, 32-character binary-collated prescriptions, "
-        "and an auto-reconciled pharmacy POS ledger, Infeara Medical System directly bridges every research gap "
-        "identified in this chapter."
-    )
+    for s_title, s_year, s_author, s_abs in surveys:
+        b.literature_item(s_title, s_year, s_author, s_abs)

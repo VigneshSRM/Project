@@ -1,655 +1,563 @@
 """
-Chapter 3 (System Analysis) + Chapter 4 (System Design, 11 Architectural/UML Diagrams,
-and Full 27-Table SQL Server 2022 Relational Data Dictionary).
+Chapter 3 (Modules & Detailed Module Descriptions) and Chapter 4 (Language,
+Framework, Security, Servlet Container & SQL Server Database Specifications)
+in exact SRMIST-DDE reference PDF format (matching Pages 23-53 of ref PDF).
 """
-import os
 
 
-def populate_ch3_and_ch4(b, assets_dir):
+def populate_ch3_and_ch4(b):
     # ==========================================================================
-    # CHAPTER 3: SYSTEM ANALYSIS
+    # CHAPTER 3: MODULES (Exact match to Pages 23-26 / ref_023.png)
     # ==========================================================================
-    b.start_chapter(3, "SYSTEM ANALYSIS")
+    b.start_chapter(3, subtitle="MODULES")
+    b.section("3.0", "MODULES", toc_label="3.0 MODULES", toc_indent=0.0,
+              new_page=False, trailing_colon=False, render_heading=False)
 
-    b.h2("3.1", "Existing System Analysis")
-    b.p(
-        "In conventional outpatient healthcare environments across towns and metropolitan neighborhoods, clinical "
-        "administration, doctor consultations, patient record-keeping, and retail pharmacy dispensing operate "
-        "through disconnected manual or semi-digital workflows. Typically, a clinic reception desk maintains a "
-        "local spreadsheet or standalone desktop billing register where returning patients are looked up by phone "
-        "number or entered anew when staff cannot immediately locate an earlier chart. Doctor schedules are managed "
-        "informally through wall calendars or reception phone logs, without automated slot-length calculation or "
-        "real-time online booking synchronization."
-    )
-    b.p(
-        "During clinical consultations, physicians either write diagnoses and medication regimens on paper pads "
-        "or type free-text notes into unversioned local forms that permit unrestricted post-hoc overwriting. Once "
-        "the patient exits the consulting room, the prescription travels exclusively as a physical slip or static "
-        "WhatsApp/PDF image. At the retail pharmacy counter, the pharmacist visually inspects the slip, manually "
-        "types medicine names and quantities into an isolated billing utility, searches paper price lists or memory "
-        "for unit rates, computes discounts and taxes by hand, and at the close of business transcribes the day's "
-        "cash and UPI totals into a separate accounting ledger."
-    )
+    b.numbered_list([
+        "Super Admin & Multi-Tenant Enrollment",
+        "Identity, Auth Tokens & Security",
+        "Clinic Administration & Patient Linking",
+        "Doctor Schedule & Atomic Slot Booking",
+        "Clinical Consultation & Signed Addenda",
+        "Electronic Prescription (32-Char e-Rx)",
+        "Pharmacy POS & Automated Finance Ledger",
+        "Transactional Email Outbox & Audit Logging",
+    ])
 
-    b.h2("3.2", "Limitations of Existing System")
-    b.p(
-        "A systematic root-cause evaluation of the existing workflow exposes critical clinical, operational, "
-        "security, and financial deficiencies:"
-    )
-    b.bullet("Fragmented Multi-Clinic Medical History:",
-             "Patients visiting multiple clinics possess no unified longitudinal view of past diagnoses, follow-up "
-             "dates, allergies, or chronic lifetime medications.")
-    b.bullet("Duplicate Walk-In vs. Online Patient Charts:",
-             "Without a staff-verified identity linking and non-destructive merge workflow, walk-in registrations "
-             "remain permanently separated from online patient accounts—or worse, naive auto-merging exposes "
-             "records to unauthorized individuals sharing a name or phone number.")
-    b.bullet("Frequent Appointment Double-Bookings:",
-             "Concurrent phone and counter bookings routinely assign two patients to the same doctor time slot due "
-             "to the absence of database-level slot locking and filtered unique constraints.")
-    b.bullet("Lack of Clinical Immutability and Auditability:",
-             "Overwritable clinical notes leave zero forensic trail of who altered a diagnosis or when, violating "
-             "fundamental medico-legal accountability principles.")
-    b.bullet("Prescription Forgery, Illegibility, and Over-Dispensing:",
-             "Handwritten prescriptions cause transcription errors at pharmacies and provide zero technical guard "
-             "against expired, cancelled, or already-dispensed prescriptions being filled multiple times.")
-    b.bullet("Slow Manual Pharmacy Pricing and Cashbook Drift:",
-             "Re-entering medicine unit prices on every sale slows counter throughput, while manual end-of-day "
-             "posting into finance books introduces arithmetic errors and unlinked receipts.")
-    b.bullet("Weak Credential Hygiene and Absent Tenant Controls:",
-             "Legacy clinic tools frequently store weak passwords, lack login brute-force throttling, expose "
-             "plaintext SMTP credentials, and cannot instantaneously revoke sessions of a suspended clinic.")
+    b.section("3.1", "MODULE DESCRIPTION", toc_label="3.1 MODULE DESCRIPTION", toc_indent=14.0)
 
-    b.table(
-        "3.1", "Structural Comparison Between Legacy Outpatient Workflows and Proposed IMS",
-        ["Operational Area", "Existing Legacy Workflow", "Proposed Infeara Medical System (IMS)"],
-        [
-            ["System Bootstrap", "Hardcoded default admin/admin credentials", "Zero-seed /setup wizard creating first SUPER_ADMIN securely"],
-            ["Patient Identity", "Isolated clinic charts; duplicate patient IDs", "Global PAT-YYYY-NNNN ID + Staff-Verified Link & Non-Destructive Merge"],
-            ["Slot Scheduling", "Manual diary; frequent double-booking", "Dynamic SlotService + Pessimistic Doctor Lock + UX_Appt_Slot Index"],
-            ["Consultation Record", "Paper pad or mutable text field", "DRAFT -> FINAL state machine + Immutable ConsultationAddenda"],
-            ["Prescription Medium", "Handwritten slip or static unverified PDF", "32-Char CSPRNG Code (Latin1_General_100_BIN2) + Real-Time Status"],
-            ["Dispensing Control", "No tracking across partial fills", "Item-level quantity_dispensed check + Over-dispense prevention"],
-            ["POS Pricing & Tax", "Manual rate lookup on every customer", "PharmacyMedicinePrices auto-prefill & automatic price memory"],
-            ["Finance Accounting", "Manual end-of-day cashbook tally", "Automatic INCOME posting to PharmacyFinanceEntries linked to receipt"],
-            ["Email Notifications", "None or blocking synchronous SMTP calls", "Transactional EmailLogs Outbox + Scheduled 1m/5m/15m Retry Worker"],
-        ],
-        col_widths=[1.35, 2.20, 2.47]
-    )
-
-    b.h2("3.3", "Proposed System")
+    # 3.1.1
+    b.section("3.1.1", "Super Admin & Multi-Tenant Enrollment",
+              toc_label="3.1.1 SUPER ADMIN & TENANT ENROLLMENT", toc_indent=28.0)
     b.p(
-        "The proposed Infeara Medical System (IMS) replaces disconnected clinic, patient, and pharmacy tools with "
-        "a unified, security-hardened web platform built on Spring Boot 4.1.2 and Microsoft SQL Server 2022. Every "
-        "human participant interacts with IMS through a dedicated, role-scoped workspace rendered inside a shared "
-        "Corporate Healthcare ERP shell. Super Administrators govern tenant onboarding by enrolling clinics and "
-        "pharmacies and dispatching hashed 72-hour single-use staff invitations, while configuring platform-wide "
-        "SMTP delivery whose credentials are encrypted at rest via AES-256-GCM."
+        "The Super Admin and Multi-Tenant Enrollment module in Infeara Medical System governs platform "
+        "initialization, healthcare facility onboarding, pharmacy licensing verification, cross-clinic "
+        "administrative oversight, and outbound mail infrastructure. Implemented across SetupController, "
+        "SetupService, AdminController, AdminClinicService, AdminPharmacyService, AdminPatientService, "
+        "AdminReportService, and SmtpSettingsService, it establishes the trust root of the entire deployment:"
     )
     b.p(
-        "Patients self-register through a structured three-section onboarding form (Personal, Address, and Optional "
-        "Medical disclosures), verify ownership of their email via a 24-hour single-use SHA-256 hashed link, and "
-        "gain access to active clinic discovery, real-time doctor slot booking, appointment rescheduling, digital "
-        "prescription viewing, and longitudinal medical history. When a patient already has a walk-in record at an "
-        "enrolled clinic, they submit a Clinic Link Request from My Profile; the clinic administrator verifies "
-        "physical photo ID and Date of Birth, reviews automated duplicate warnings, and either links the account "
-        "directly or executes a non-destructive record merge that transfers all appointments, consultations, and "
-        "prescriptions onto the canonical clinic record while retaining the superseded row with merged_into_patient_id "
-        "for audit integrity."
+        "When the database contains zero user rows (userRepository.count() == 0), navigating to /setup "
+        "renders a one-time Platform Owner wizard that validates password strength, creates the initial "
+        "ACTIVE SUPER_ADMIN account, logs SETUP_COMPLETED in dbo.AuditLogs, and permanently locks /setup "
+        "against all future invocations.",
+        bold_prefix="Zero-Seed Platform Bootstrap:"
     )
     b.p(
-        "Doctors work from a focused clinical queue where appointments progress cleanly from BOOKED/CHECKED_IN to "
-        "IN_CONSULTATION and COMPLETED. Consultations are editable while in DRAFT and permanently frozen upon "
-        "finalization, after which supplementary clinical observations are appended as signed ConsultationAddenda. "
-        "From a finalized consultation, the doctor issues a digital prescription aided by the clinic's standardized "
-        "medicine formulary (ClinicMedicines), producing a 32-character unambiguous alphanumeric code. At any "
-        "enrolled pharmacy, scanning or typing that 32-character code into /pharmacy/pos verifies authenticity, "
-        "expiry, cancellation status, and remaining dispensable units, pre-fills unit prices from "
-        "PharmacyMedicinePrices, calculates discounts, tax, and change due, records partial or full dispensing, "
-        "and automatically posts the net sale total as an INCOME entry in PharmacyFinanceEntries."
+        "Super Administrators enroll outpatient clinics (/admin/clinics) and retail dispensing pharmacies "
+        "(/admin/pharmacies), recording facility addresses, contact metadata, and state drug license numbers "
+        "(such as KL-12356H2-77) while automatically issuing 72-hour single-use STAFF_INVITE links to "
+        "designated facility administrators.",
+        bold_prefix="Clinic & Pharmacy Enrollment:"
     )
-
-    b.h2("3.4", "Advantages of Proposed System")
-    b.bullet("End-to-End Clinical & Financial Continuity:",
-             "Connects clinic reception, consulting rooms, patient self-service, pharmacy POS billing, and "
-             "pharmacy cashflow accounting within one ACID-compliant relational database.")
-    b.bullet("Zero-Trust Ownership & Tenant Isolation:",
-             "Resolves patient and staff context strictly from the authenticated Spring Security principal, "
-             "preventing horizontal privilege escalation (IDOR) and terminating suspended-clinic sessions instantly.")
-    b.bullet("Mathematically Guaranteed Fraud & Concurrency Resistance:",
-             "32-character CSPRNG prescription codes provide 160 bits of entropy (32^32 combinations), while "
-             "pessimistic row locks and SQL filtered unique indexes eliminate double-booking and over-dispensing.")
-    b.bullet("High Counter Velocity at Retail Pharmacies:",
-             "Remembered medicine prices, instant prescription line population, automated GST/tax calculation, "
-             "and zero-touch finance ledger posting cut pharmacy billing time to seconds.")
-    b.bullet("Zero-Setup Portability & Enterprise Scalability:",
-             "Runs out-of-the-box on an in-memory/file H2 compatibility profile for rapid development and testing, "
-             "and scales seamlessly to Microsoft SQL Server 2022 with Flyway migrations in production.")
-
-    b.h2("3.5", "Software Requirements Specification (SRS)")
     b.p(
-        "Tables 3.2 and 3.3 formalize the Functional Requirements (FR-01 through FR-18) and Non-Functional "
-        "Requirements (NFR-01 through NFR-10) implemented and verified in the clinicflow-app codebase."
-    )
-    b.table(
-        "3.2", "Functional Requirements Specification Matrix (FR-01 to FR-18)",
-        ["Req. ID", "Module", "Functional Requirement Specification", "Priority"],
-        [
-            ["FR-01", "Bootstrap", "Allow creation of the initial SUPER_ADMIN via /setup only when zero users exist in dbo.Users.", "Critical"],
-            ["FR-02", "Identity", "Support patient self-registration with unique email check and password policy (>=10 chars, letter + digit).", "Critical"],
-            ["FR-03", "Auth Tokens", "Issue single-use SHA-256 hashed tokens for VERIFY_EMAIL (24h), RESET_PASSWORD (60m), STAFF_INVITE (72h), EMAIL_CHANGE (24h).", "Critical"],
-            ["FR-04", "Admin", "Enable SUPER_ADMIN to enroll, activate, and suspend Clinics and Pharmacies and dispatch admin invitations.", "High"],
-            ["FR-05", "Admin SMTP", "Allow SUPER_ADMIN to configure, AES-256-GCM encrypt, activate, and live-test SMTP server settings.", "High"],
-            ["FR-06", "Clinic Masters", "Allow CLINIC_ADMIN to create/edit walk-in Patient Masters, onboard Doctors, and configure weekday DoctorSchedules.", "Critical"],
-            ["FR-07", "Formulary", "Provide Clinic Medicine Formulary CRUD plus bulk CSV template download, CSV import, and CSV export.", "Medium"],
-            ["FR-08", "Patient Link", "Enable patients to request clinic links and require CLINIC_ADMIN ID verification + DOB check to approve or reject.", "Critical"],
-            ["FR-09", "Record Merge", "Support non-destructive merging of an online patient record into an existing clinic patient record preserving all FKs.", "Critical"],
-            ["FR-10", "Discovery", "Allow patients to search and filter ACTIVE clinics by city/keyword and inspect doctors, fees, and opening hours.", "High"],
-            ["FR-11", "Slot Booking", "Compute available future slots dynamically and book/reschedule/cancel appointments without double-booking.", "Critical"],
-            ["FR-12", "Front Desk", "Allow CLINIC_ADMIN to confirm, check in, cancel, or mark appointments as NO_SHOW from the clinic queue.", "High"],
-            ["FR-13", "Consultation", "Enable DOCTOR to start consultations, save mutable DRAFT notes, finalise irreversibly, and append signed addenda.", "Critical"],
-            ["FR-14", "e-Prescription", "Generate 32-character case-sensitive prescriptions with validity days, item quantities, instructions, and lifetime flag.", "Critical"],
-            ["FR-15", "Rx Verify", "Verify 32-char Rx codes at pharmacy with outcomes VALID, NOT_FOUND, CANCELLED, EXPIRED, or FULLY_DISPENSED.", "Critical"],
-            ["FR-16", "Pharmacy POS", "Pre-fill POS cart from PharmacyMedicinePrices, compute subtotal/discount/tax/change, and enforce remaining-qty bounds.", "Critical"],
-            ["FR-17", "Finance Sync", "Automatically post completed POS sale totals as INCOME in PharmacyFinanceEntries linked to dispense_id; allow manual expenses.", "High"],
-            ["FR-18", "Email Outbox", "Persist outbound notifications in EmailLogs with idempotency keys and deliver asynchronously with exponential retry.", "High"],
-        ],
-        col_widths=[0.72, 0.98, 3.62, 0.70]
+        "Super Administrators can transition any clinic or pharmacy between ACTIVE and SUSPENDED states, "
+        "inspect live platform telemetry (/admin/reports), browse privacy-masked cross-clinic Patient Masters "
+        "(/admin/patients where mobile and email strings are masked server-side), and configure STARTTLS/SSL "
+        "SMTP credentials encrypted at rest using AES-256-GCM.",
+        bold_prefix="Tenant Governance & Masked Oversight:"
     )
 
-    b.table(
-        "3.3", "Non-Functional Requirements Specification Matrix (NFR-01 to NFR-10)",
-        ["NFR ID", "Category", "Target Engineering Requirement & Implementation Mechanism"],
-        [
-            ["NFR-01", "Security (Auth)", "Passwords hashed via Spring DelegatingPasswordEncoder (BCrypt); CSRF enabled on all state-mutating POST forms."],
-            ["NFR-02", "Brute-Force Defense", "LoginThrottleFilter & AuthRateLimiter block repeated failures (5 failed logins per 15-minute window per email/IP)."],
-            ["NFR-03", "Tenant Isolation", "Immediate logout via ClinicStatusFilter whenever a clinic transitions from ACTIVE to SUSPENDED."],
-            ["NFR-04", "Concurrency", "Zero appointment slot collisions and zero prescription over-dispenses under concurrent multi-user transactions."],
-            ["NFR-05", "Data Integrity", "open-in-view=false; explicit @Transactional boundaries; SQL CHECK constraints and ROWVERSION optimistic locking."],
-            ["NFR-06", "Auditability", "Every authentication, linking, clinical, prescribing, and dispensing action recorded in dbo.AuditLogs with actor & IP."],
-            ["NFR-07", "Performance", "HikariCP connection pooling (max 10, min-idle 2) and indexed lookup queries delivering <150 ms median page latency."],
-            ["NFR-08", "Resilience", "Transient SMTP outages isolated from user transactions via scheduled EmailDispatchWorker (5s poll, 3 retries)."],
-            ["NFR-09", "Maintainability", "Schema changes strictly version-controlled via Flyway SQL migrations V001 through V009."],
-            ["NFR-10", "Usability", "Consistent Corporate ERP layout with keyboard-accessible forms, semantic status badges, and contextual breadcrumbs."],
-        ],
-        col_widths=[0.75, 1.25, 4.02]
-    )
-
-    b.h2("3.6", "Feasibility Study")
+    # 3.1.2
+    b.section("3.1.2", "Identity, Auth Tokens & Security",
+              toc_label="3.1.2 IDENTITY, AUTH TOKENS & SECURITY", toc_indent=28.0)
     b.p(
-        "Prior to full-scale implementation, a comprehensive three-pillar feasibility study was conducted to "
-        "evaluate technical viability, financial cost-effectiveness, and day-to-day operational adoption across "
-        "target clinics and pharmacies."
+        "The Identity, Auth Tokens, and Security module protects user authentication, credential recovery, "
+        "staff onboarding, and role-segregated portal routing across all six RBAC actors. Engineered across "
+        "SecurityConfig, LoginThrottleFilter, ClinicStatusFilter, AuthTokenService, TokenHasher, PasswordPolicy, "
+        "RegistrationService, InvitationService, and EmailChangeService, it enforces defense-in-depth security:"
+    )
+    b.p(
+        "Every password created during /setup, /register, /invite, or /reset-password is validated against "
+        "PasswordPolicy (minimum 10 characters with at least one alphabetic letter and one numeric digit) "
+        "and hashed irreversibly via Spring Security's BCryptPasswordEncoder.",
+        bold_prefix="BCrypt Credential Hardening:"
+    )
+    b.p(
+        "Verification links (24h TTL), password-reset links (60m TTL), staff invitations (72h TTL), and "
+        "email-change confirmations (24h TTL) generate 256-bit SecureRandom URL-safe tokens. Only the 32-byte "
+        "SHA-256 digest is stored in dbo.AuthTokens, and consumption executes under a pessimistic write lock "
+        "(findForUpdate) so a link can never be replayed.",
+        bold_prefix="Single-Use SHA-256 AuthToken Vault:"
+    )
+    b.p(
+        "LoginThrottleFilter blocks brute-force password guessing after 5 failed attempts within 15 minutes "
+        "per normalized email or client IP, while ClinicStatusFilter intercepts every /clinic/** and /doctor/** "
+        "request and immediately invalidates the HTTP session if the underlying clinic is suspended.",
+        bold_prefix="Brute-Force Throttling & Live Suspension Guard:"
     )
 
-    b.h3("3.6.1", "Technical Feasibility")
+    # 3.1.3
+    b.section("3.1.3", "Clinic Administration & Patient Linking",
+              toc_label="3.1.3 CLINIC ADMIN & PATIENT LINKING", toc_indent=28.0)
     b.p(
-        "Infeara Medical System relies exclusively on mature, enterprise-proven, open-standards technologies. "
-        "Spring Boot 4.1.2 on Java 27 provides battle-tested dependency injection, declarative transaction "
-        "management, scheduled background execution, and Spring Security filter pipelines without requiring "
-        "external message brokers or complex container orchestration. Microsoft SQL Server 2022 Express supplies "
-        "production-grade ACID guarantees, binary collations (Latin1_General_100_BIN2), filtered unique indexes, "
-        "and row-versioning free of licensing fees up to 10 GB per database, while H2's MSSQLServer compatibility "
-        "mode enables zero-dependency developer execution and automated CI testing. On the client tier, standard "
-        "HTML5, CSS3 custom properties, and lightweight progressive JavaScript run smoothly on any modern desktop "
-        "or tablet browser without client-side build chains or GPU requirements. Consequently, the system is "
-        "100% technically feasible."
+        "The Clinic Administration and Patient Linking module empowers clinic reception desks and facility "
+        "managers (/clinic/**) to register walk-in patients, resolve online patient account linkage requests, "
+        "consolidate duplicate charts safely, and maintain standardized clinic drug formularies:"
+    )
+    b.p(
+        "Reception staff register walk-in patients with formatted public identifiers (PAT-YYYY-NNNN), "
+        "capturing demographics, blood group, known drug allergies, chronic conditions, and emergency contacts "
+        "while automatically linking the chart to the active clinic via dbo.ClinicPatients.",
+        bold_prefix="Walk-In Patient Master Management:"
+    )
+    b.p(
+        "When a self-registered portal patient requests linkage to a clinic, ClinicLinkRequestService "
+        "automatically scans existing clinic charts for matching Name and Date of Birth. Front-desk staff "
+        "must verify physical government photo ID and check identityVerified=true before approving.",
+        bold_prefix="Staff-Verified Identity Linking:"
+    )
+    b.p(
+        "If the patient already possesses a prior walk-in chart with an identical Date of Birth, "
+        "mergeIntoClinicRecord atomically transfers all Appointments, Prescriptions, and ClinicPatients "
+        "rows onto the canonical chart, moves the User login reference, and stamps merged_into_patient_id "
+        "on the retired row so historical AuditLogs foreign keys remain intact.",
+        bold_prefix="Non-Destructive Patient Record Merge:"
+    )
+    b.p(
+        "Clinic Administrators curate standardized clinic medicines (dbo.ClinicMedicines) specifying "
+        "strength, dosage form, default frequency, duration, and quantity, with one-click RFC-4180 CSV "
+        "bulk import and export (/clinic/inventory).",
+        bold_prefix="Standardized Clinic Drug Formulary:"
     )
 
-    b.h3("3.6.2", "Economic Feasibility")
+    # 3.1.4
+    b.section("3.1.4", "Doctor Schedule & Atomic Slot Booking",
+              toc_label="3.1.4 DOCTOR SCHEDULE & SLOT BOOKING", toc_indent=28.0)
     b.p(
-        "Because the entire software stack—OpenJDK 27, Apache Maven, Spring Boot, Thymeleaf, Flyway Core, H2, and "
-        "Microsoft SQL Server 2022 Express—is available at zero software licensing cost, capital expenditure is "
-        "minimal. A single modest virtual private server or on-premise clinic mini-server can host multiple "
-        "clinics and pharmacies simultaneously. Eliminating pre-printed multi-part prescription pads, preventing "
-        "revenue leakage at pharmacy counters, and saving 3–5 minutes of receptionist and pharmacist clerical "
-        "effort per patient encounter yields rapid return on investment, as summarized in Table 3.4."
+        "The Doctor Schedule and Atomic Slot Booking module coordinates physician availability windows "
+        "and patient/desk appointment reservations across SlotService, BookingService, ClinicDoctorService, "
+        "ClinicAppointmentController, and PatientBookingController:"
     )
-    b.table(
-        "3.4", "Estimated Annual Cost-Benefit & Economic Feasibility Summary (Small 3-Clinic Network)",
-        ["Cost / Benefit Component", "Legacy Manual / Siloed Setup", "Proposed IMS Platform", "Net Impact"],
-        [
-            ["Software Licensing Fees", "Rs. 45,000 / yr (3 desktop licenses)", "Rs. 0 (Open-Source Java + SQL Express)", "Saves Rs. 45,000 / yr"],
-            ["Cloud / Server Hosting", "Local fragile PCs (unbacked)", "Rs. 18,000 / yr (Managed VPS + Backups)", "Predictable low OpEx"],
-            ["Paper Pads & Registers", "Rs. 24,000 / yr", "Rs. 3,000 / yr (Digital e-Rx primary)", "Saves Rs. 21,000 / yr"],
-            ["Pharmacy Billing & Tally Labor", "~2.5 hrs/day manual price/ledger work", "Automated POS price memory & ledger", ">75% time reduction"],
-            ["Over-Dispense / Billing Errors", "2–4% unrecorded or mispriced items", "<0.1% (Strict DB & BigDecimal guards)", "Direct margin recovery"],
-        ],
-        col_widths=[1.65, 1.50, 1.55, 1.32]
+    b.p(
+        "Clinic Administrators onboard doctors, link their practitioner logins via dbo.DoctorUserLinks, "
+        "configure consultation fees, and define recurring weekday availability windows (start_time, end_time, "
+        "slot_minutes, effective_from, effective_to) in dbo.DoctorSchedules.",
+        bold_prefix="Weekday Availability Modeling:"
+    )
+    b.p(
+        "SlotService dynamically computes candidate time slots for a requested date, subtracting past "
+        "timestamps and any slot already occupied by an active appointment (BOOKED, CONFIRMED, or IN_CONSULTATION).",
+        bold_prefix="Dynamic Candidate Slot Computation:"
+    )
+    b.p(
+        "During booking or rescheduling, BookingService acquires a pessimistic database write lock on the "
+        "Doctor row (doctorRepository.findForUpdate) and inserts the appointment under SQL Server's filtered "
+        "unique index UX_Appt_Slot. Cancelled or no-show visits are excluded from UX_Appt_Slot, making freed "
+        "slots immediately bookable by other patients.",
+        bold_prefix="Dual-Guard Conflict-Free Reservation:"
     )
 
-    b.h3("3.6.3", "Operational Feasibility")
+    # 3.1.5
+    b.section("3.1.5", "Clinical Consultation & Signed Addenda",
+              toc_label="3.1.5 CLINICAL CONSULTATION & ADDENDA", toc_indent=28.0)
     b.p(
-        "Operational feasibility measures how naturally clinic receptionists, doctors, patients, and pharmacists "
-        "adopt the system without disruptive retraining. IMS mirrors real clinical mental models: receptionists "
-        "see an intuitive Today's Appointments queue and guided identity-verification checkboxes; doctors use "
-        "clinic-formulary autocomplete to prescribe drugs in seconds; patients book visible time-slot pills just "
-        "like familiar consumer portals; and pharmacists scan or paste a single 32-character code into a bold "
-        "POS input bar where unit prices are remembered automatically after the first sale. Hence, operational "
-        "friction is exceptionally low and user acceptance is high."
+        "The Clinical Consultation and Signed Addenda module (/doctor/appointments/{id}) provides practicing "
+        "physicians with a medico-legally sound electronic encounter workspace implemented in "
+        "DoctorConsultationController and DoctorConsultationService:"
+    )
+    b.p(
+        "Doctors open checked-in encounters from their personal queue, review patient allergies and chronic "
+        "conditions, and record clinical diagnoses, examination notes, and recommended follow-up dates in "
+        "editable DRAFT status while the visit is underway.",
+        bold_prefix="Draft Clinical Documentation:"
+    )
+    b.p(
+        "Clicking Finalise transitions dbo.Consultations irreversibly to FINAL, stamps finalised_at in UTC, "
+        "marks the parent appointment COMPLETED, and permanently locks diagnosis and primary notes against "
+        "retrospective modification.",
+        bold_prefix="Irreversible Encounter Finalization:"
+    )
+    b.p(
+        "Any subsequent clinical clarification, lab-report note, or dosage remark is appended exclusively "
+        "as an immutable dbo.ConsultationAddenda record storing author_user_id, reason, text, and UTC timestamp.",
+        bold_prefix="Append-Only Signed Addenda:"
+    )
+
+    # 3.1.6
+    b.section("3.1.6", "Electronic Prescription (32-Char e-Rx)",
+              toc_label="3.1.6 ELECTRONIC PRESCRIPTION (E-RX)", toc_indent=28.0)
+    b.p(
+        "The Electronic Prescription module (PrescriptionService, DoctorPrescriptionController, "
+        "ClinicPrescriptionController, and PatientPrescriptionController) eliminates paper prescription "
+        "forgery and ambiguity through high-entropy cryptographic prescription identifiers:"
+    )
+    b.p(
+        "PublicIdGenerator.prescriptionCode() draws 32 characters from a 32-symbol unambiguous uppercase "
+        "alphanumeric alphabet (ABCDEFGHJKLMNPQRSTUVWXYZ23456789, omitting 0, O, 1, and I) using "
+        "java.security.SecureRandom, yielding 160 bits of cryptographic entropy.",
+        bold_prefix="160-Bit Unambiguous CSPRNG Code:"
+    )
+    b.p(
+        "dbo.Prescriptions stores prescription_code as CHAR(32) COLLATE Latin1_General_100_BIN2, enforcing "
+        "exact binary code-point case sensitivity so lowercase or altered strings are rejected immediately.",
+        bold_prefix="Binary Case-Sensitive SQL Collation:"
+    )
+    b.p(
+        "Each prescription line item (dbo.PrescriptionItems) captures medicine name, dosage, form, frequency, "
+        "duration, chronic lifetime flag, prescribed quantity, and cumulative quantity_dispensed, while "
+        "dbo.vw_PrescriptionFulfilment computes NOT_DISPENSED, PARTIALLY_DISPENSED, or FULLY_DISPENSED in real time.",
+        bold_prefix="Granular Line-Item & Chronic Therapy Tracking:"
+    )
+
+    # 3.1.7
+    b.section("3.1.7", "Pharmacy POS & Automated Finance Ledger",
+              toc_label="3.1.7 PHARMACY POS & FINANCE LEDGER", toc_indent=28.0)
+    b.p(
+        "The Pharmacy Point of Sale and Automated Finance Ledger module (/pharmacy/pos, /pharmacy/prices, "
+        "/pharmacy/finance) unifies prescription verification, retail counter billing, self-learning drug "
+        "pricing, and financial accounting inside PharmacyService and PharmacyFinanceService:"
+    )
+    b.p(
+        "Scanning or entering a 32-character Prescription ID executes binary case-sensitive lookup, checks "
+        "cancellation, expiry_date, and remaining item balances, and logs an immutable dbo.PharmacyVerifications "
+        "row containing the SHA-256 attempt_hash, client IP, and VerificationOutcome.",
+        bold_prefix="Cryptographic Counter Verification:"
+    )
+    b.p(
+        "When a valid prescription opens in the POS cart, IMS automatically pre-fills unit selling prices "
+        "from dbo.PharmacyMedicinePrices. Any new or updated unit price entered during billing is saved "
+        "automatically per pharmacy and medicine so repeat sales take seconds.",
+        bold_prefix="Self-Learning Medicine Price Catalog:"
+    )
+    b.p(
+        "Submitting a POS sale locks the prescription items (findForUpdate), blocks any quantity exceeding "
+        "(quantity - quantity_dispensed), calculates exact DECIMAL(12,2) subtotal, discount, tax, total, "
+        "tendered cash, and change due (RoundingMode.HALF_UP), generates a printable SALE receipt, and "
+        "automatically inserts a receipt-linked INCOME entry into dbo.PharmacyFinanceEntries.",
+        bold_prefix="Over-Dispense Guard & Automatic Finance Sync:"
+    )
+
+    # 3.1.8
+    b.section("3.1.8", "Transactional Email Outbox & Audit Logging",
+              toc_label="3.1.8 TRANSACTIONAL OUTBOX & AUDIT LOGGING", toc_indent=28.0)
+    b.p(
+        "The Transactional Email Outbox and Audit Logging module guarantees reliable notification delivery "
+        "and tamper-evident regulatory traceability across all clinical and administrative operations:"
+    )
+    b.p(
+        "Domain events (verification, password reset, staff invite, appointment confirmation/cancellation, "
+        "and prescription issuance) write QUEUED rows with idempotency keys into dbo.EmailLogs inside the "
+        "same database transaction. EmailDispatchWorker polls every 5 seconds and retries transient SMTP "
+        "errors with 1-minute, 5-minute, and 15-minute exponential backoff.",
+        bold_prefix="Resilient Outbox with Exponential Backoff:"
+    )
+    b.p(
+        "AuditService records every authentication attempt, setup action, tenant status change, patient "
+        "link/merge decision, consultation finalization, prescription action, and pharmacy dispense into "
+        "dbo.AuditLogs with actor_user_id, actor_role, client IP, patient_id, resource_id, and outcome.",
+        bold_prefix="Patient-Centric Compliance Audit Trail:"
     )
 
     # ==========================================================================
-    # CHAPTER 4: SYSTEM DESIGN
+    # CHAPTER 4: LANGUAGE SPECIFICATIONS (Exact match to Pages 27-53 / ref_027.png)
     # ==========================================================================
-    b.start_chapter(4, "SYSTEM DESIGN")
+    b.start_chapter(4)
+    b.section("4.0", "LANGUAGE SPECIFICATIONS", toc_label="4.0 LANGUAGE SPECIFICATIONS", toc_indent=0.0)
 
-    b.h2("4.1", "Design Overview and Architectural Principles")
+    b.subheading("Java 27 Technology and the Java Platform")
     b.p(
-        "System design translates the functional and non-functional requirements of Chapter 3 into concrete "
-        "software structures, security pipelines, data flow topologies, object-oriented domain entities, and "
-        "normalized relational database schemas. Five core architectural principles govern every class and SQL "
-        "script inside Infeara Medical System:"
+        "Java technology serves as both the object-oriented programming language and the enterprise runtime "
+        "platform powering the Infeara Medical System (clinicflow-app). Unlike languages compiled directly to "
+        "a single processor instruction set, Java source files (.java) are compiled by javac into platform-neutral "
+        "bytecode (.class) executed by the Java Virtual Machine (JVM) via Just-In-Time (JIT) native compilation. "
+        "The Java language and runtime environment are characterized by the following core engineering attributes:",
+        first_indent=36
     )
-    b.bullet("1. Modular Monolith with Explicit Transaction Boundaries:",
-             "Domain logic is organized into cohesive vertical and horizontal packages (audit, common, config, "
-             "domain, identity, notifications, security, web). Spring JPA's open-in-view anti-pattern is explicitly "
-             "disabled (spring.jpa.open-in-view=false) so lazy-loading never leaks into Thymeleaf view rendering "
-             "and every read/write operation executes inside a well-defined @Transactional service method.")
-    b.bullet("2. Dual-Layer Defense-in-Depth Concurrency:",
-             "Critical clinical invariants are enforced both in Java domain services and in SQL Server DDL—for "
-             "example, pessimistic row locking (UPDLOCK) plus filtered unique index UX_Appt_Slot on appointments, "
-             "and Java case equality plus Latin1_General_100_BIN2 binary collation on prescription codes.")
-    b.bullet("3. Session-Derived Ownership (Zero IDOR Surface):",
-             "Controllers never accept a raw patientId, clinicId, or pharmacyId to identify the acting user; "
-             "ownership is resolved exclusively from the authenticated AppUserPrincipal in the server HTTP session.")
-    b.bullet("4. Append-Only Clinical & Forensic History:",
-             "Finalized consultations cannot be mutated (only extended via ConsultationAddenda), merged patient "
-             "records are preserved dormantly via merged_into_patient_id, and every sensitive action writes an "
-             "immutable row to dbo.AuditLogs.")
-    b.bullet("5. Asynchronous Side-Effect Decoupling via Transactional Outbox:",
-             "Domain events (registration verification, staff invites, booking confirmations, prescription issuance) "
-             "write queued EmailLogs records inside the business transaction, decoupling user response latency "
-             "from external SMTP server availability.")
-
-    b.h2("4.2", "System Architecture")
-    b.p(
-        "Figure 4.1 illustrates the six-tier Modular Monolith architecture of Infeara Medical System. Requests "
-        "originating from desktop or tablet web browsers traverse the Spring Security 6 gateway filter chain "
-        "(Tier 2), route into role-isolated Spring WebMVC controllers and Thymeleaf layout templates (Tier 3), "
-        "invoke @Transactional domain services and event listeners (Tier 4), execute parameterized ORM and "
-        "pessimistic-locking queries via Spring Data JPA / Hibernate 6 (Tier 5), and persist ACID state in "
-        "Microsoft SQL Server 2022 alongside the @Scheduled EmailDispatchWorker (Tier 6)."
-    )
-    b.figure("4.1", "Infeara Medical System (IMS) Six-Tier Modular Monolith Architecture",
-             os.path.join(assets_dir, "architecture_diagram.png"), width_in=5.95)
+    for kw in [
+        "Object-Oriented and Strongly Typed (Java Records, Sealed Hierarchies & Enums)",
+        "Architecture Neutral and Portable Across Windows and Linux Servers",
+        "High Performance via HotSpot Adaptive JIT Compilation",
+        "Memory-Safe with Deterministic Automatic Garbage Collection",
+        "Multithreaded Concurrency Support for High-Throughput Web Requests",
+        "Built-In Cryptographic Architecture (java.security.SecureRandom & javax.crypto.Cipher)",
+    ]:
+        b.bullet(kw)
 
     b.p(
-        "Complementing the macro tier structure, Figure 4.2 details the defense-in-depth Spring Security filter "
-        "pipeline and cryptographic services (LoginThrottleFilter, BCrypt authentication, ClinicStatusFilter, "
-        "SHA-256 AuthTokens, AES-256-GCM SecretCipher, and AuditService)."
+        "In Infeara Medical System, Java 27 language features directly improve clinical code safety and "
+        "maintainability. Immutable Java record types model view DTOs, KPI cards (KpiCard), slot options "
+        "(SlotService.DaySlots), and service outcomes (DecisionResult) without mutable boilerplate. Twenty-one "
+        "strongly typed Java enum classes under com.clinicflow.domain.enums enforce compile-time exhaustiveness "
+        "across switch expressions for roles, appointment states, consultation lifecycles, token purposes, "
+        "verification outcomes, and email backoff schedules.",
+        first_indent=36
     )
-    b.figure("4.2", "IMS Defense-in-Depth Security Filter Chain and Cryptographic Controls",
-             os.path.join(assets_dir, "security_pipeline.png"), width_in=5.95)
 
-    b.h2("4.3", "Data Flow Diagrams (DFD)")
+    b.subheading("Spring Boot 4.1.2 and Modular Monolith Architecture")
     b.p(
-        "Data Flow Diagrams model how clinical, administrative, cryptographic, and financial information enters, "
-        "transforms within, and persists across the system boundary without coupling prematurely to object syntax."
+        "Spring Boot 4.1.2 builds atop the Spring Framework Inversion-of-Control (IoC) container to provide "
+        "auto-configured enterprise infrastructure, declarative transaction management (@Transactional), "
+        "Jakarta Bean Validation, scheduled background task execution (@EnableScheduling), and self-contained "
+        "executable JAR packaging. Rather than dispersing domain invariants across loosely coupled scripts, "
+        "IMS structures its 189 Java classes as a disciplined Modular Monolith under com.clinicflow—cleanly "
+        "separating audit, common, config, domain, identity, notifications, security, and role-scoped web "
+        "packages while executing cross-entity workflows inside single-database ACID transactions.",
+        first_indent=36
     )
-
-    b.h3("4.3.1", "Level 0 DFD (System Context Diagram)")
     b.p(
-        "At Level 0 (Figure 4.3), the entire Infeara Medical System is represented as central Process 0.0 "
-        "exchanging structured request and response data streams with five external actor classes: Super Admin, "
-        "Clinic Admin, Doctor, Patient, and Pharmacy Staff."
+        "Declarative @Transactional boundaries in Spring ensure atomicity across multi-step clinical mutations. "
+        "For example, when PharmacyService.dispense() updates cumulative dispensed quantities on "
+        "dbo.PrescriptionItems, writes a dbo.PrescriptionDispenses receipt, upserts dbo.PharmacyMedicinePrices, "
+        "and invokes PharmacyFinanceService to post an INCOME entry into dbo.PharmacyFinanceEntries, any "
+        "validation or concurrency exception rolls back every SQL statement cleanly.",
+        first_indent=36
     )
-    b.figure("4.3", "Data Flow Diagram — Level 0 (System Context Diagram)",
-             os.path.join(assets_dir, "dfd_level0.png"), width_in=5.85)
 
-    b.h3("4.3.2", "Level 1 DFD (Subsystem Decomposition)")
+    b.subheading("Embedded Apache Tomcat Servlet Container")
     b.p(
-        "Decomposing Process 0.0 yields six major functional processes (Processes 1.0 through 6.0) interacting "
-        "with five logical relational data stores (D1 through D5), as depicted in Figure 4.4: Identity, RBAC & "
-        "Patient Linking (1.0), Clinic Discovery & Slot Booking (2.0), Consultation & Addenda Engine (3.0), "
-        "32-Character e-Prescription Issuance & Outbox (4.0), Pharmacy Verification & POS Billing (5.0), and "
-        "Finance Ledger & Audit Reporting (6.0)."
+        "Infeara Medical System embeds Apache Tomcat directly inside the Spring Boot runtime, listening on "
+        "configurable HTTP/HTTPS connectors (PORT=8080 by default) without requiring external WAR deployment. "
+        "Incoming browser requests enter Tomcat's Coyote HTTP connector, traverse the Servlet Filter pipeline "
+        "managed by Spring Security's DelegatingFilterProxy, and dispatch through Spring's DispatcherServlet "
+        "to @Controller handler methods. Session cookies are hardened with HttpOnly attributes, strict "
+        "server-side session invalidation on logout or tenant suspension, and configurable timeout policies.",
+        first_indent=36
     )
-    b.figure("4.4", "Data Flow Diagram — Level 1 (IMS Functional Decomposition)",
-             os.path.join(assets_dir, "dfd_level1.png"), width_in=5.95)
 
-    b.h3("4.3.3", "Level 2 DFD (Pharmacy POS Verification, Pricing & Ledger Automation)")
+    b.subheading("Spring Security 6 and Cryptographic Primitives")
     b.p(
-        "Because Process 5.0 encapsulates critical real-time prescription validation, partial-dispensing math, "
-        "self-learning catalog pricing, and automated cashbook synchronization, Figure 4.5 expands Process 5.0 "
-        "into five granular sub-processes (5.1 through 5.5)."
+        "Spring Security 6 enforces authentication, authorization, session fixation protection, and Cross-Site "
+        "Request Forgery (CSRF) defense across all 70+ HTTP endpoints in IMS. SecurityConfig defines strict "
+        "URL-prefix authorization rules mapping /admin/** to ROLE_SUPER_ADMIN, /clinic/** to ROLE_CLINIC_ADMIN, "
+        "/doctor/** to ROLE_DOCTOR, /patient/** to ROLE_PATIENT, and /pharmacy/** to ROLE_PHARMACY_ADMIN or "
+        "ROLE_PHARMACIST, while routing unauthorized requests to a custom /error/403 view.",
+        first_indent=36
     )
-    b.figure("4.5", "Data Flow Diagram — Level 2 (Pharmacy POS Dispensing and Automated Finance Sync)",
-             os.path.join(assets_dir, "dfd_level2_pos.png"), width_in=5.90)
-
-    b.h2("4.4", "Use Case Diagram and Actor Specifications")
     b.p(
-        "Figure 4.6 presents the Unified Modeling Language (UML) Use Case Diagram capturing thirteen core "
-        "use cases (UC-01 through UC-13) across the six security roles defined in com.clinicflow.domain.enums.Role."
+        "Three dedicated cryptographic mechanisms reinforce application security: (1) BCrypt adaptive salted "
+        "hashing protects user login passwords in dbo.Users; (2) TokenHasher computes deterministic 32-byte "
+        "SHA-256 digests over 256-bit SecureRandom tokens so raw verification, reset, and staff-invite tokens "
+        "never touch disk; and (3) SecretCipher encrypts outbound SMTP relay passwords using 256-bit AES in "
+        "Galois/Counter Mode (AES/GCM/NoPadding) with a fresh 12-byte random IV and 128-bit authentication tag.",
+        first_indent=36
     )
-    b.figure("4.6", "IMS Unified UML Use Case Diagram Across Five Actor Portals",
-             os.path.join(assets_dir, "use_case_diagram.png"), width_in=5.90)
 
+    b.subheading("Thymeleaf 3.1 Server-Side Rendering, HTML5, CSS3 and ES6 JavaScript")
+    b.p(
+        "The presentation tier of IMS comprises 61 server-rendered HTML5 templates processed by Thymeleaf 3.1 "
+        "and the Ultraq Layout Dialect. Shared master layouts—templates/layout/base.html for the authenticated "
+        "ERP shell and templates/layout/auth.html for public authentication screens—render a cohesive Corporate "
+        "Healthcare ERP visual language governed by 1,882 lines of custom CSS variables in static/css/app.css "
+        "(#0F2744 dark-navy left sidebar, #1E4E8C primary actions, #0E8A8A clinical teal accents, and WCAG AA "
+        "semantic status badges). By escaping dynamic expressions via th:text by default and embedding hidden "
+        "_csrf synchronizer tokens into every HTML <form>, Thymeleaf neutralizes reflected/stored XSS and CSRF "
+        "attacks while delivering sub-40 ms server render latency.",
+        first_indent=36
+    )
+
+    b.subheading("Spring Data JPA, Hibernate 6 ORM and HikariCP JDBC Connectivity")
+    b.p(
+        "Java Database Connectivity (JDBC) provides the standardized Java API for executing parameterized SQL "
+        "statements and transactions against relational database engines. Atop HikariCP—an ultra-low-latency "
+        "JDBC connection pool—IMS layers Hibernate 6 ORM and 24 Spring Data JPA repository interfaces. "
+        "Crucially, application.yml disables Open-Session-In-View (spring.jpa.open-in-view: false) so all "
+        "relational queries execute predictably inside service-layer transactions without N+1 lazy-loading "
+        "leaks during view rendering, and configures PhysicalNamingStrategyStandardImpl with hibernate.ddl-auto: "
+        "validate so every JPA entity column is verified strictly against the SQL Server schema at startup.",
+        first_indent=36
+    )
+
+    b.subheading("Flyway Migrations and Microsoft SQL Server 2022 Relational Database")
+    b.p(
+        "Microsoft SQL Server 2022 Express serves as the primary ACID relational database management system "
+        "for Infeara Medical System, complemented by H2 in MSSQLServer compatibility mode (MODE=MSSQLServer) "
+        "for fast offline automated testing. Nine sequential Flyway SQL scripts (V001__init_schema.sql through "
+        "V009__pharmacy_pos_pricing.sql) provision 27 normalized relational tables and 1 SQL fulfilment view "
+        "(dbo.vw_PrescriptionFulfilment) inside the dbo schema.",
+        first_indent=36
+    )
+    b.p(
+        "SQL Server's advanced T-SQL capabilities directly enforce clinical invariants at the storage engine "
+        "level: CHAR(32) COLLATE Latin1_General_100_BIN2 enforces binary case-sensitive prescription lookup; "
+        "the filtered unique index UX_Appt_Slot ON dbo.Appointments(doctor_id, slot_start) WHERE status NOT IN "
+        "('CANCELLED','NO_SHOW') prevents double-booked slots while releasing cancelled appointments instantly; "
+        "DECIMAL(12,2) and DECIMAL(18,2) guarantee exact monetary arithmetic across pharmacy POS billing and "
+        "finance ledgers; and ROWVERSION columns provide hardware-atomic optimistic concurrency tracking.",
+        first_indent=36
+    )
+
+    # Complete Relational Schema Summary Tables in clean B&W SRMIST style
     b.table(
-        "4.1", "Detailed Actor-to-Use-Case Responsibility Specification",
-        ["Actor / Role Enum", "Portal Prefix", "Authorized Use Cases & Domain Responsibilities"],
+        "Flyway Database Migration History (V001 – V009):",
+        ["Migration", "Script File", "Relational Schema Objects Provisioned"],
         [
-            ["Super Admin (SUPER_ADMIN)", "/admin/**",
-             "Bootstraps system via /setup; enrolls, activates, and suspends Clinics & Pharmacies; dispatches 72h admin invites; views global Patient Masters & KPI reports; manages AES-GCM encrypted SMTP settings."],
-            ["Clinic Admin (CLINIC_ADMIN)", "/clinic/**",
-             "Maintains clinic Patient Masters; verifies physical ID & DOB to approve/reject/merge PatientLinkRequests; manages Doctors & weekday DoctorSchedules; operates Appointment check-in desk; imports/exports CSV ClinicMedicines."],
-            ["Doctor (DOCTOR)", "/doctor/**",
-             "Views assigned daily appointment queue; transitions encounters to IN_CONSULTATION; authors DRAFT diagnoses/notes, finalizes consultations irreversibly, appends signed ConsultationAddenda, and issues 32-char e-Prescriptions."],
-            ["Patient (PATIENT)", "/patient/**",
-             "Self-registers & verifies email; edits profile & requests verified email changes; requests Clinic Links; discovers active clinics; books, reschedules, or cancels conflict-free slots; views 32-char prescriptions & longitudinal history."],
-            ["Pharmacy Admin & Pharmacist (PHARMACY_ADMIN, PHARMACIST)", "/pharmacy/**",
-             "Verifies 32-char prescription codes; executes POS cart billing with auto-remembered unit prices, discounts, taxes, and over-dispense protection; prints sale receipts; manages Finance Ledger, staff invites (Admin), and reports."],
+            ["V001", "V001__init_schema.sql", "Creates 24 core tables + view dbo.vw_PrescriptionFulfilment + UX_Appt_Slot + BIN2 Rx collation."],
+            ["V002", "V002__identity_email_outbox.sql", "Adds subject, body, next_attempt_at to EmailLogs; adds UX_AuthTokens_token_hash."],
+            ["V003", "V003__patient_link_request_resolution.sql", "Adds clinic_patient_record_id, resolved_by, and resolution_note to PatientLinkRequests."],
+            ["V004", "V004__invites_contact_change_and_merge_marker.sql", "Adds Users.pending_email, Patients.merged_into_patient_id, and 4 AuthToken purposes."],
+            ["V005", "V005__clinic_inventory.sql", "Creates dbo.ClinicMedicines formulary catalog with unique (clinic_id, medicine, dosage)."],
+            ["V006", "V006__rename_inventory_unit_to_form.sql", "Renames ClinicMedicines.default_unit to default_form (Tablet, Capsule, Syrup, etc.)."],
+            ["V007", "V007__prescription_item_lifetime.sql", "Adds lifetime BIT NOT NULL DEFAULT 0 column to dbo.PrescriptionItems."],
+            ["V008", "V008__pharmacy_finance.sql", "Creates dbo.PharmacyFinanceEntries ledger table with INCOME / EXPENSE constraint."],
+            ["V009", "V009__pharmacy_pos_pricing.sql", "Creates dbo.PharmacyMedicinePrices; adds POS sale columns to Dispenses; links Finance to dispense_id."],
         ],
-        col_widths=[1.45, 0.95, 3.62]
-    )
-
-    b.p(
-        "To formalize actor interactions at an engineering specification level, Tables 4.1a through 4.1d document "
-        "the complete preconditions, main success scenarios, security exception flows, and transactional "
-        "postconditions for the four highest-criticality workflows in Infeara Medical System."
-    )
-
-    uc_specs = [
-        ("4.1a", "Use Case Specification — UC-05: Staff-Verified Patient Link & Non-Destructive Record Merge", [
-            ["Primary Actor & Trigger", "CLINIC_ADMIN opens /clinic/link-requests/{id} after PATIENT submits link request."],
-            ["Preconditions", "Clinic is ACTIVE; PatientLinkRequest status is PENDING; Clinic Admin belongs to target clinic_id."],
-            ["Main Success Scenario", "1. System displays account patient's name, verified DOB, email, mobile & duplicate warnings.\n"
-                                      "2. Clinic Admin inspects physical photo ID at front desk and checks identityVerified=true.\n"
-                                      "3. Admin optionally enters walk-in public_patient_id (e.g., PAT-2026-0014) to merge.\n"
-                                      "4. Service verifies exact DOB match, re-points Appointments, Prescriptions & ClinicPatients to target row, moves User FK, and sets merged_into_patient_id on old row.\n"
-                                      "5. Status updates to APPROVED and AuditLogs records PATIENT_RECORD_MERGED + PATIENT_LINK_APPROVED."],
-            ["Exception / Security Flows", "• Missing identityVerified checkbox -> HTTP 200 form error; state stays PENDING.\n"
-                                           "• Target record DOB differs from account DOB -> Merge rejected immediately.\n"
-                                           "• Admin from another clinic requests URL -> HTTP 404 / tenant isolation enforced."],
-            ["Postconditions", "Single unified patient chart linked to online User login; zero orphaned foreign keys."],
-        ]),
-        ("4.1b", "Use Case Specification — UC-08: Atomic Conflict-Free Doctor Slot Booking", [
-            ["Primary Actor & Trigger", "Authenticated PATIENT selects clinic, doctor, date, and 15-min slot on /patient/book."],
-            ["Preconditions", "Patient email verified; ClinicStatus == ACTIVE; DoctorStatus == ACTIVE; ClinicDoctor active."],
-            ["Main Success Scenario", "1. SlotService computes future slots from weekday DoctorSchedules minus active Appointments.\n"
-                                      "2. Patient submits POST /patient/book with valid CSRF token.\n"
-                                      "3. BookingService acquires pessimistic write lock (doctorRepository.findForUpdate).\n"
-                                      "4. Service re-verifies slot availability, inserts BOOKED Appointment under UX_Appt_Slot, assigns APT-YYYY-NNNNN, ensures ClinicPatient link, and queues confirmation email."],
-            ["Exception / Security Flows", "• Competing request took slot milliseconds earlier -> Lock serializes or UX_Appt_Slot throws DataIntegrityViolationException -> clean 'Slot just taken' message.\n"
-                                           "• Past timestamp or unscheduled weekday -> Rejected before insert."],
-            ["Postconditions", "Exactly one active appointment occupies (doctor_id, slot_start); AuditLogs & EmailLogs updated."],
-        ]),
-        ("4.1c", "Use Case Specification — UC-09 & UC-10: Immutable Clinical Consultation & 32-Char e-Rx", [
-            ["Primary Actor & Trigger", "Authenticated DOCTOR opens checked-in encounter at /doctor/appointments/{id}."],
-            ["Preconditions", "DoctorUserLink maps session user to appointment's doctor_id; Clinic is ACTIVE."],
-            ["Main Success Scenario", "1. Doctor clicks Start Consultation -> status moves to IN_CONSULTATION; DRAFT Consultation created.\n"
-                                      "2. Doctor enters diagnosis, vitals/notes, and follow-up date; clicks Finalise.\n"
-                                      "3. Consultation transitions irreversibly to FINAL (finalised_at stamped); Appointment marked COMPLETED.\n"
-                                      "4. Any subsequent note is appended via ConsultationAddenda with author & reason.\n"
-                                      "5. Doctor selects formulary medicines, sets validity days, and issues 32-char CSPRNG Prescription."],
-            ["Exception / Security Flows", "• Attempt to edit diagnosis after FINAL -> Blocked; only addenda permitted.\n"
-                                           "• Duplicate prescription on same consultation -> Blocked (1-to-1 consultation Rx rule)."],
-            ["Postconditions", "Immutable clinical record + VALID 32-char binary-collated Prescription + queued patient email."],
-        ]),
-        ("4.1d", "Use Case Specification — UC-11, UC-12 & UC-13: Pharmacy POS Billing & Auto-Ledger Sync", [
-            ["Primary Actor & Trigger", "PHARMACY_ADMIN or PHARMACIST scans 32-char code on /pharmacy/pos."],
-            ["Preconditions", "Pharmacy status is ACTIVE; PharmacyUser status is ACTIVE."],
-            ["Main Success Scenario", "1. PharmacyService performs binary case-sensitive lookup, checks status/expiry/remaining units, and logs PharmacyVerification (outcome=VALID).\n"
-                                      "2. POS cart auto-populates remaining quantities and remembered unit prices from PharmacyMedicinePrices.\n"
-                                      "3. Pharmacist confirms quantities, discount, tax rate, payment method (Cash/UPI/Card), and tendered amount.\n"
-                                      "4. Service locks PrescriptionItems, increments quantity_dispensed, saves PrescriptionDispense receipt, updates remembered prices, and auto-posts INCOME to PharmacyFinanceEntries."],
-            ["Exception / Security Flows", "• Wrong case / unknown code -> NOT_FOUND logged with SHA-256 attempt_hash.\n"
-                                           "• Requested qty > remaining -> Over-dispense blocked; transaction rolled back.\n"
-                                           "• Reusing consumed verificationId -> Rejected (one verification per dispense)."],
-            ["Postconditions", "Updated item fulfilment, printable SALE receipt, remembered catalog prices, and linked INCOME ledger row."],
-        ]),
-    ]
-    for utnum, utcap, utrows in uc_specs:
-        b.table(utnum, utcap, ["Specification Element", "Engineering & Clinical Detail"], utrows, col_widths=[1.65, 4.37])
-
-    b.h2("4.5", "Object-Oriented & Behavioral UML Models (Class, Sequence, Activity & State)")
-    b.p(
-        "Figure 4.7 illustrates the UML Domain Entity Class Diagram mapped directly to com.clinicflow.domain.entity.*. "
-        "Entities encapsulate surrogate BIGINT keys, public UUIDs or formatted human-readable IDs (PAT-YYYY-NNNN, "
-        "APT-YYYY-NNNNN), @Version byte[] optimistic row versions where concurrent edits occur, and strongly typed "
-        "enumerated status fields."
-    )
-    b.figure("4.7", "IMS Core Domain Entity UML Class Diagram (Spring Data JPA / Hibernate 6)",
-             os.path.join(assets_dir, "class_diagram.png"), width_in=5.95)
-
-    b.p(
-        "Figure 4.8 traces the fifteen-step temporal interaction sequence across Patient Browser, Doctor Workspace, "
-        "Spring Boot Transactional Services, SQL Server 2022, and Pharmacy POS Terminal—spanning atomic slot "
-        "reservation, clinical consultation finalization, 32-character prescription issuance, binary-collated POS "
-        "lookup, itemized dispensing, price-list learning, and automated finance-ledger posting."
-    )
-    b.figure("4.8", "UML Sequence Diagram — End-to-End Clinical Consultation, e-Rx & Pharmacy POS Flow",
-             os.path.join(assets_dir, "sequence_diagram.png"), width_in=5.95)
-
-    b.p(
-        "Figure 4.9 models the branching control flow of patient registration, front-desk identity verification "
-        "(including rejection vs. approval/record-merge branches), clinical consultation, prescription generation, "
-        "and POS fulfillment, while Figure 4.10 formalizes the finite-state machines governing AppointmentStatus "
-        "and Prescription / vw_PrescriptionFulfilment lifecycles."
-    )
-    b.figure("4.9", "UML Activity Workflow Diagram — Patient Linking, Clinical Care & Dispensing",
-             os.path.join(assets_dir, "activity_diagram.png"), width_in=5.55)
-    b.figure("4.10", "UML Lifecycle State Machine Diagram — AppointmentStatus & Prescription Fulfilment",
-             os.path.join(assets_dir, "state_machine_diagram.png"), width_in=5.90)
-
-    b.h2("4.6", "Entity Relationship (ER) Diagram")
-    b.p(
-        "Figure 4.11 depicts the complete relational Entity-Relationship architecture spanning all 27 normalized "
-        "tables across Flyway migrations V001 through V009, organized cleanly into five functional domains: "
-        "(1) Identity & Tenant Enrollment, (2) Patient Federation & Link Merging, (3) Clinical Scheduling & "
-        "Consultations, (4) Electronic Prescriptions & Clinic Formulary, and (5) Pharmacy POS, Price Memory, "
-        "Finance Ledger, Outbox & Audit."
-    )
-    b.figure("4.11", "IMS Relational Database Entity-Relationship (ER) Schema (27 Tables, V001–V009)",
-             os.path.join(assets_dir, "er_diagram.png"), width_in=5.95)
-
-    b.h2("4.7", "Complete Relational Database Design and Data Dictionary")
-    b.p(
-        "The persistence schema of Infeara Medical System is governed deterministically by nine sequential Flyway "
-        "SQL migration scripts located in clinicflow-app/src/main/resources/db/migration/ (V001 through V009). "
-        "All tables reside in the dbo schema on Microsoft SQL Server 2022, utilizing BIGINT IDENTITY(1,1) surrogate "
-        "primary keys for fast internal joins alongside UNIQUEIDENTIFIER (NEWID()) or formatted public identifiers "
-        "so sequential primary keys are never exposed in public URLs. Timestamps standardize on DATETIME2(3) in "
-        "UTC (SYSUTCDATETIME()), monetary figures use exact fixed-point DECIMAL(12,2) or DECIMAL(18,2) arithmetic, "
-        "and concurrency-critical tables include ROWVERSION columns."
+        col_widths=[0.85, 2.25, 3.35]
     )
 
     b.table(
-        "4.2", "Flyway Database Migration History (V001 through V009)",
-        ["Version", "Migration Script Filename", "Schema Objects Created / Altered"],
+        "Complete 27-Table & 1-View SQL Server Schema Specification (dbo.*):",
+        ["Table / View Name", "Primary Key & Key Constraints", "Core Columns & Clinical Responsibility"],
         [
-            ["V001", "V001__init_schema.sql", "Creates 24 core tables + SQL view dbo.vw_PrescriptionFulfilment + filtered unique index UX_Appt_Slot + BIN2 Rx collation."],
-            ["V002", "V002__identity_email_outbox.sql", "Adds subject, body, next_attempt_at to EmailLogs; creates UX_AuthTokens_token_hash and IX_EmailLogs_status_next_attempt."],
-            ["V003", "V003__patient_link_request_resolution.sql", "Adds clinic_patient_record_id, resolved_by, and resolution_note FKs/columns to PatientLinkRequests."],
-            ["V004", "V004__invites_contact_change_and_merge_marker.sql", "Adds Users.pending_email, Patients.merged_into_patient_id self-FK, and expands AuthTokens purposes to 4 types."],
-            ["V005", "V005__clinic_inventory.sql", "Creates dbo.ClinicMedicines table for standardized clinic drug formularies with unique (clinic_id, medicine, dosage)."],
-            ["V006", "V006__rename_inventory_unit_to_form.sql", "Renames ClinicMedicines.default_unit to default_form to accurately reflect dosage form (Tablet, Capsule, Syrup)."],
-            ["V007", "V007__prescription_item_lifetime.sql", "Adds lifetime BIT NOT NULL DEFAULT 0 column to dbo.PrescriptionItems for chronic/lifetime therapies."],
-            ["V008", "V008__pharmacy_finance.sql", "Creates dbo.PharmacyFinanceEntries ledger table with INCOME / EXPENSE check constraint and date index."],
-            ["V009", "V009__pharmacy_pos_pricing.sql", "Creates dbo.PharmacyMedicinePrices; adds subtotal, discount, tax, total, payment columns to Dispenses; links Finance to dispense_id."],
+            ["dbo.Clinics", "clinic_id BIGINT PK, UQ public_uuid", "name, registration_no, city, state, phone, email, status (ACTIVE/SUSPENDED), row_version"],
+            ["dbo.ClinicEnrollments", "enrollment_id BIGINT PK, FK clinic_id", "submitted_by_email, licence_document, status (SUBMITTED/APPROVED/REJECTED), reviewed_by"],
+            ["dbo.Users", "user_id BIGINT PK, UQ email, FK clinic_id", "password_hash (BCrypt), pending_email, role (6 RBAC roles), status, email_verified_at"],
+            ["dbo.AuthTokens", "token_id BIGINT PK, UQ token_hash BINARY(32)", "user_id FK, purpose (VERIFY_EMAIL/RESET_PASSWORD/STAFF_INVITE/EMAIL_CHANGE), expires_at, used_at"],
+            ["dbo.Patients", "patient_id BIGINT PK, UQ public_patient_id", "user_id UQ FK, merged_into_patient_id FK, full_name, dob, gender, mobile, allergies, conditions"],
+            ["dbo.ClinicPatients", "clinic_patient_id BIGINT PK, UQ(clinic,patient)", "clinic_id FK, patient_id FK, clinic_mrn, linked_at, linked_by"],
+            ["dbo.PatientLinkRequests", "link_request_id BIGINT PK, FK clinic & patient", "method, status (PENDING/APPROVED/REJECTED), clinic_patient_record_id, resolved_by, resolution_note"],
+            ["dbo.Doctors", "doctor_id BIGINT PK, UQ public_uuid", "full_name, registration_no, specialization, qualification, status (ACTIVE/INACTIVE)"],
+            ["dbo.ClinicDoctors", "clinic_doctor_id BIGINT PK, UQ(clinic,doctor)", "clinic_id FK, doctor_id FK, consultation_fee DECIMAL(10,2), active BIT"],
+            ["dbo.DoctorUserLinks", "link_id BIGINT PK, UQ(user_id)", "user_id FK -> Users, doctor_id FK -> Doctors, clinic_id FK -> Clinics"],
+            ["dbo.DoctorSchedules", "schedule_id BIGINT PK, CK weekday 1..7", "clinic_id, doctor_id, weekday, start_time, end_time, slot_minutes, effective_from/to"],
+            ["dbo.Appointments", "appointment_id BIGINT PK, UX_Appt_Slot", "public_appointment_id (APT-YYYY-NNNNN), patient_id, clinic_id, doctor_id, slot_start/end, status"],
+            ["dbo.Consultations", "consultation_id BIGINT PK, UQ appointment_id", "diagnosis, notes, follow_up, status (DRAFT -> irreversible FINAL), finalised_at, row_version"],
+            ["dbo.ConsultationAddenda", "addendum_id BIGINT PK, FK consultation_id", "author_user_id FK, reason, text, created_at (immutable post-FINAL clinical clarifications)"],
+            ["dbo.ClinicMedicines", "medicine_id BIGINT PK, UQ(clinic,med,dosage)", "medicine, dosage, default_form, default_frequency, default_duration, default_quantity, active"],
+            ["dbo.Prescriptions", "prescription_id BIGINT PK, BIN2 CHAR(32) UQ", "prescription_code (32-char CSPRNG), consultation_id, patient_id, doctor_id, expiry_date, status"],
+            ["dbo.PrescriptionItems", "item_id BIGINT PK, CK qty_dispensed <= qty", "prescription_id FK, line_no, medicine, dosage, form, frequency, lifetime BIT, quantity, quantity_dispensed"],
+            ["dbo.vw_PrescriptionFulfilment", "SQL View grouped by prescription_id", "Computes NOT_DISPENSED, PARTIALLY_DISPENSED, or FULLY_DISPENSED dynamically from item balances"],
+            ["dbo.Pharmacies", "pharmacy_id BIGINT PK, UQ licence_no", "name, licence_no, address, city, state, phone, email, status (PENDING/ACTIVE/SUSPENDED)"],
+            ["dbo.PharmacyUsers", "pharmacy_user_id BIGINT PK, UQ(pharmacy,user)", "pharmacy_id FK, user_id FK, role_in_pharmacy (PHARMACY_ADMIN/PHARMACIST), status"],
+            ["dbo.PharmacyVerifications", "verification_id BIGINT PK, attempt_hash", "pharmacy_id, verified_by, prescription_id NULL, outcome (VALID/NOT_FOUND/CANCELLED/EXPIRED/FULLY_DISPENSED)"],
+            ["dbo.PharmacyMedicinePrices", "price_id BIGINT PK, UQ(pharmacy,medicine)", "unit_price DECIMAL(12,2) >= 0, updated_at (auto-remembered per-pharmacy POS catalog)"],
+            ["dbo.PrescriptionDispenses", "dispense_id BIGINT PK, UQ verification_id", "pharmacy_id, prescription_id, dispense_status, subtotal, discount, tax_amount, total_amount, payment_method"],
+            ["dbo.PrescriptionDispenseItems", "dispense_item_id BIGINT PK, FK dispense_id", "prescription_item_id FK, quantity_dispensed, unit_price DECIMAL(12,2), line_total DECIMAL(12,2)"],
+            ["dbo.PharmacyFinanceEntries", "entry_id BIGINT PK, FK dispense_id NULL", "pharmacy_id FK, entry_type (INCOME/EXPENSE), amount DECIMAL(12,2), description, entry_date"],
+            ["dbo.SmtpSettings", "smtp_id INT PK (=1 singleton)", "host, port, username, password_enc VARBINARY(512) (AES-256-GCM), security_mode, enabled"],
+            ["dbo.EmailLogs", "email_id BIGINT PK, UQ idempotency_key", "template_code, recipient_email, subject, body, status (QUEUED/SENT/FAILED), attempts, next_attempt_at"],
+            ["dbo.AuditLogs", "audit_id BIGINT PK, IX(patient_id,created_at)", "actor_user_id, actor_role, action_code, resource_type, resource_id, patient_id, outcome, ip_address"],
         ],
-        col_widths=[0.65, 2.15, 3.22]
+        col_widths=[1.45, 1.75, 3.25]
     )
 
-    # Full Data Dictionary of all 27 tables!
-    dd_tables = [
-        ("4.3", "Data Dictionary — dbo.Clinics (Multi-Tenant Healthcare Facilities)", [
-            ["clinic_id", "BIGINT IDENTITY(1,1)", "PK, NOT NULL", "Internal surrogate primary key for the clinic tenant."],
-            ["public_uuid", "UNIQUEIDENTIFIER", "UQ, DEFAULT NEWID()", "Public opaque UUID exposed in patient clinic-discovery URLs."],
-            ["name", "NVARCHAR(200)", "NOT NULL", "Official display name of the enrolled clinic or polyclinic."],
-            ["address_line1 / line2", "NVARCHAR(200)", "line1 NOT NULL", "Street address and suite/landmark details."],
-            ["city / area / district", "NVARCHAR(100)", "city NOT NULL, IX", "Indexed city, locality, and district for patient clinic search."],
-            ["state / postal_code", "NVARCHAR(100 / 20)", "NOT NULL", "State and postal PIN code."],
-            ["latitude / longitude", "DECIMAL(9,6)", "NULL", "Optional geographic coordinates for proximity discovery."],
-            ["phone / email", "NVARCHAR(30 / 254)", "NULL", "Public reception phone number and contact email."],
-            ["opening_hours / fees", "NVARCHAR(500 / 200)", "NULL", "Published operating schedule and baseline consultation fee text."],
-            ["status", "VARCHAR(12)", "CK IN (PENDING,ACTIVE,SUSPENDED)", "Lifecycle state enforced on every request by ClinicStatusFilter."],
-            ["created_at / updated_at", "DATETIME2(3)", "NOT NULL, UTC", "Audit creation and last-modification UTC timestamps."],
-        ]),
-        ("4.4", "Data Dictionary — dbo.Users (Unified Security Principals)", [
-            ["user_id", "BIGINT IDENTITY(1,1)", "PK, NOT NULL", "Internal surrogate key referenced by sessions and audit logs."],
-            ["public_uuid", "UNIQUEIDENTIFIER", "UQ, DEFAULT NEWID()", "External immutable UUID for user principal."],
-            ["email", "NVARCHAR(254)", "UQ, NOT NULL", "Primary verified login email address (unique across platform)."],
-            ["pending_email", "NVARCHAR(254)", "NULL (Added V004)", "Unverified target email address awaiting EMAIL_CHANGE token confirmation."],
-            ["password_hash", "NVARCHAR(255)", "NOT NULL", "DelegatingPasswordEncoder BCrypt hash ({bcrypt}$2a$...)."],
-            ["role", "VARCHAR(20)", "CK (6 Roles), IX", "SUPER_ADMIN, CLINIC_ADMIN, DOCTOR, PATIENT, PHARMACY_ADMIN, PHARMACIST."],
-            ["status", "VARCHAR(12)", "CK (4 States)", "PENDING, ACTIVE, SUSPENDED, or DISABLED."],
-            ["email_verified_at", "DATETIME2(3)", "NULL", "UTC timestamp set when VERIFY_EMAIL or STAFF_INVITE token is consumed."],
-            ["clinic_id", "BIGINT", "FK -> Clinics, NULL", "Tenant clinic binding for CLINIC_ADMIN and DOCTOR accounts."],
-            ["row_ver", "ROWVERSION", "Optimistic Lock", "SQL Server automatic binary counter preventing lost concurrent updates."],
-        ]),
-        ("4.5", "Data Dictionary — dbo.Patients (Master & Self-Registered Patient Profiles)", [
-            ["patient_id", "BIGINT IDENTITY(1,1)", "PK, NOT NULL", "Surrogate key for clinical foreign-key relationships."],
-            ["public_patient_id", "NVARCHAR(20)", "UQ, NOT NULL", "Formatted identifier PAT-YYYY-NNNN generated via PublicIdGenerator."],
-            ["user_id", "BIGINT", "FK -> Users, NULL, IX", "Linked online User account (NULL for unlinked walk-in clinic records)."],
-            ["merged_into_patient_id", "BIGINT", "Self-FK -> Patients (V004)", "Non-NULL when this dormant row was merged into a canonical clinic record."],
-            ["first_name / last_name", "NVARCHAR(100)", "NOT NULL", "Verified legal given name and family surname."],
-            ["dob", "DATE", "NOT NULL", "Date of birth used as mandatory anti-mismatch guard during link merges."],
-            ["gender", "VARCHAR(10)", "CK (MALE,FEMALE,OTHER,UNKNOWN)", "Optional self-reported or clinic-recorded gender."],
-            ["mobile / email", "NVARCHAR(30 / 254)", "NULL", "Patient contact phone and notification address."],
-            ["address_line1..postal_code", "NVARCHAR", "NULL", "Residential street, city, district, state, and PIN code."],
-            ["blood_group", "NVARCHAR(10)", "NULL", "ABO/Rh blood group displayed in Doctor consultation sidebar."],
-            ["allergies / conditions", "NVARCHAR(1000)", "NULL", "Drug/food allergies and chronic medical conditions."],
-            ["emergency_name / phone", "NVARCHAR(200 / 30)", "NULL", "Emergency next-of-kin contact details."],
-            ["source_flag", "VARCHAR(20)", "CK (PATIENT_ENTERED, CLINIC_ENTERED)", "Distinguishes online self-registrations from front-desk walk-in charts."],
-            ["row_ver", "ROWVERSION", "Optimistic Lock", "Prevents concurrent profile overwrite anomalies."],
-        ]),
-        ("4.6", "Data Dictionary — dbo.Doctors, dbo.ClinicDoctors, dbo.DoctorSchedules & dbo.DoctorUserLinks", [
-            ["Doctors.doctor_id", "BIGINT IDENTITY(1,1)", "PK, NOT NULL", "Primary key of practitioner master entity (public_uuid, name, specialization, status)."],
-            ["ClinicDoctors.clinic_doctor_id", "BIGINT IDENTITY(1,1)", "PK, UQ(clinic_id,doctor_id)", "Associates a Doctor with a Clinic, consultation fee DECIMAL(10,2), and ACTIVE/INACTIVE status."],
-            ["DoctorSchedules.schedule_id", "BIGINT IDENTITY(1,1)", "PK, IX(doctor_id,clinic_id)", "Defines weekly consulting window: weekday (0..6), start_time, end_time, slot_minutes (default 15), effective_from/to."],
-            ["DoctorUserLinks.link_id", "BIGINT IDENTITY(1,1)", "PK, UQ(user_id)", "Binds a DOCTOR login account (Users.user_id) 1-to-1 to their practitioner profile (Doctors.doctor_id)."],
-        ]),
-        ("4.7", "Data Dictionary — dbo.Appointments (Conflict-Free Slot Reservations)", [
-            ["appointment_id", "BIGINT IDENTITY(1,1)", "PK, NOT NULL", "Internal surrogate key for appointment encounter."],
-            ["public_appointment_id", "NVARCHAR(20)", "UQ, NOT NULL", "Human-readable booking code APT-YYYY-NNNNN."],
-            ["patient_id / clinic_id / doctor_id", "BIGINT", "FKs, NOT NULL, IX", "References Patient, Clinic, and Doctor; indexed for queue & slot lookups."],
-            ["slot_start / slot_end", "DATETIME2(3)", "NOT NULL, UX_Appt_Slot", "Filtered unique index UX_Appt_Slot(doctor_id, slot_start) on active statuses prevents double-booking."],
-            ["reason", "NVARCHAR(500)", "NULL", "Chief complaint or visit reason entered during booking."],
-            ["status", "VARCHAR(20)", "CK (7 States)", "BOOKED, CONFIRMED, CHECKED_IN, IN_CONSULTATION, COMPLETED, CANCELLED, NO_SHOW."],
-            ["booked_at / cancelled_at", "DATETIME2(3)", "UTC", "Booking creation and optional cancellation timestamps + cancel_reason NVARCHAR(300)."],
-            ["row_ver", "ROWVERSION", "Optimistic Lock", "Protects concurrent status transitions between front desk and doctor."],
-        ]),
-        ("4.8", "Data Dictionary — dbo.Consultations & dbo.ConsultationAddenda (Clinical Records)", [
-            ["Consultations.consultation_id", "BIGINT IDENTITY(1,1)", "PK, NOT NULL", "Primary key of clinical encounter note."],
-            ["Consultations.appointment_id", "BIGINT", "UQ, FK -> Appointments", "Strict 1-to-1 link ensuring at most one consultation record per appointment."],
-            ["Consultations.diagnosis", "NVARCHAR(2000)", "NULL", "Primary clinical diagnosis recorded by consulting physician."],
-            ["Consultations.notes", "NVARCHAR(MAX)", "NULL", "Detailed examination findings, vitals, and care instructions."],
-            ["Consultations.follow_up", "DATETIME2(3)", "NULL", "Recommended clinical review/follow-up date."],
-            ["Consultations.status / finalised_at", "VARCHAR(10) / DATETIME2(3)", "CK (DRAFT, FINAL)", "Once set to FINAL, diagnosis and notes become permanently immutable."],
-            ["ConsultationAddenda.addendum_id", "BIGINT IDENTITY(1,1)", "PK, FK -> Consultations", "Append-only post-finalization clinical note storing author_user_id, reason NVARCHAR(300), text NVARCHAR(MAX), created_at."],
-        ]),
-        ("4.9", "Data Dictionary — dbo.Prescriptions, dbo.PrescriptionItems & dbo.ClinicMedicines", [
-            ["Prescriptions.prescription_id", "BIGINT IDENTITY(1,1)", "PK, NOT NULL", "Internal primary key of electronic prescription header."],
-            ["Prescriptions.prescription_code", "CHAR(32) BIN2", "UQ, CK Alphanumeric", "32-char CSPRNG code under Latin1_General_100_BIN2 case-sensitive binary collation."],
-            ["Prescriptions.consultation_id", "BIGINT", "FK -> Consultations", "Links prescription to its originating clinical consultation, patient_id, clinic_id, and doctor_id."],
-            ["Prescriptions.issue_date / expiry_date", "DATETIME2(3)", "NOT NULL, UTC", "Issuance timestamp and mandatory expiration boundary enforced by PharmacyService."],
-            ["Prescriptions.status", "VARCHAR(10)", "CK (VALID, CANCELLED)", "Allows clinic/doctor revocation with cancel_reason, cancelled_at, and cancelled_by."],
-            ["PrescriptionItems.prescription_item_id", "BIGINT IDENTITY(1,1)", "PK, FK -> Prescriptions", "Line item storing medicine, dosage, frequency, duration, instructions, and ROWVERSION."],
-            ["PrescriptionItems.quantity / dispensed", "INT", "CK (0 <= disp <= qty)", "Prescribed units (>0) and cumulative quantity_dispensed across partial pharmacy fills."],
-            ["PrescriptionItems.lifetime", "BIT", "NOT NULL DEFAULT 0 (V007)", "Marks chronic/lifetime maintenance medications in patient history."],
-            ["ClinicMedicines.clinic_medicine_id", "BIGINT IDENTITY(1,1)", "PK, UQ(clinic,med,dosage)", "Clinic formulary (V005/V006): medicine, dosage, default_frequency, default_duration, default_quantity, default_form, default_instructions."],
-        ]),
-        ("4.10", "Data Dictionary — dbo.Pharmacies, dbo.PharmacyUsers, dbo.PharmacyVerifications & dbo.PharmacyMedicinePrices", [
-            ["Pharmacies.pharmacy_id", "BIGINT IDENTITY(1,1)", "PK, UQ(licence_number)", "Enrolled retail pharmacy tenant with public_uuid, name, licence_number, address, status (PENDING/ACTIVE/SUSPENDED)."],
-            ["PharmacyUsers.pharmacy_user_id", "BIGINT IDENTITY(1,1)", "PK, UQ(user_id)", "Maps Users account to a Pharmacy with role (PHARMACY_ADMIN, PHARMACIST) and status (ACTIVE, DISABLED)."],
-            ["PharmacyVerifications.verification_id", "UNIQUEIDENTIFIER", "PK DEFAULT NEWID()", "Immutable verification token & log storing pharmacy_id, pharmacy_user_id, prescription_id, SHA-256 attempt_hash BINARY(32), outcome (6 values), verified_at, ip_address."],
-            ["PharmacyMedicinePrices.price_id", "BIGINT IDENTITY(1,1)", "PK, UQ(pharmacy_id,medicine)", "Self-learning per-pharmacy price catalog (V009) storing unit_price DECIMAL(12,2) >= 0 and updated_at."],
-        ]),
-        ("4.11", "Data Dictionary — dbo.PrescriptionDispenses, dbo.PrescriptionDispenseItems & dbo.PharmacyFinanceEntries", [
-            ["PrescriptionDispenses.dispense_id", "BIGINT IDENTITY(1,1)", "PK, UQ(public_uuid)", "POS sale & dispense receipt linked to prescription_id, pharmacy_id, pharmacy_user_id, and single-use verification_id."],
-            ["subtotal / discount / tax_amount / total", "DECIMAL(12,2)", "NOT NULL, CK >= 0 (V009)", "Exact BigDecimal monetary totals plus tax_rate DECIMAL(5,2), payment_method, amount_tendered, and change_due."],
-            ["status / void metadata", "VARCHAR(10)", "CK (COMPLETED, VOIDED)", "Enforces voided_at, voided_by, and void_reason whenever status='VOIDED'."],
-            ["PrescriptionDispenseItems.dispense_item_id", "BIGINT IDENTITY(1,1)", "PK, UQ(dispense,rx_item)", "Records quantity_dispensed (>0), unit_price DECIMAL(12,2), and line_total DECIMAL(12,2) per medicine line."],
-            ["PharmacyFinanceEntries.entry_id", "BIGINT IDENTITY(1,1)", "PK, IX(pharmacy_id,date)", "Accounting ledger (V008/V009): entry_type (INCOME/EXPENSE), amount DECIMAL(18,2), description, entry_date, created_by, and FK dispense_id."],
-        ]),
-        ("4.12", "Data Dictionary — Enrollment, Patient Linking, AuthTokens, Outbox, SMTP & Audit Tables", [
-            ["ClinicEnrollments.enrollment_id", "BIGINT IDENTITY(1,1)", "PK, FK -> Clinics, Users", "Tracks clinic onboarding by SUPER_ADMIN, invite_token_hash BINARY(32), status, enrolled_at, activated_at."],
-            ["ClinicPatients.clinic_patient_id", "BIGINT IDENTITY(1,1)", "PK, UQ(clinic_id,patient_id)", "Many-to-many link authorizing a clinic to view/manage a linked patient chart."],
-            ["PatientLinkRequests.link_request_id", "BIGINT IDENTITY(1,1)", "PK, IX(clinic,status)", "Stores patient_id, clinic_id, method (CLINIC_APPROVAL/OTP/CODE), status (PENDING/APPROVED/REJECTED/EXPIRED), clinic_patient_record_id, resolved_by, resolution_note."],
-            ["AuthTokens.token_id", "BIGINT IDENTITY(1,1)", "PK, UX(token_hash)", "Single-use token vault: user_id, purpose (VERIFY_EMAIL, RESET_PASSWORD, STAFF_INVITE, EMAIL_CHANGE), SHA-256 token_hash BINARY(32), expires_at, used_at."],
-            ["EmailLogs.email_log_id", "BIGINT IDENTITY(1,1)", "PK, UQ(idempotency_key)", "Transactional email outbox (V001/V002): type, recipient, subject, body, status (QUEUED/SENT/FAILED), attempts, next_attempt_at, last_error, sent_at."],
-            ["SmtpSettings.settings_id", "BIGINT IDENTITY(1,1)", "PK", "Platform SMTP relay config: host, port, security (NONE/STARTTLS/SSL), username, AES-GCM password_encrypted VARBINARY(512), from_address, active, last_test_result."],
-            ["AuditLogs.audit_id", "BIGINT IDENTITY(1,1)", "PK, IX(patient_id,actor)", "Forensic security & clinical log: actor_user_id, role, action, resource_type, resource_id, patient_id, ip_address, outcome (SUCCESS/FAILURE/DENIED), created_at."],
-        ]),
-    ]
-
-    for tnum, tcap, trows in dd_tables:
-        b.table(tnum, tcap, ["Column / Object", "SQL Data Type", "Constraints & Indexes", "Clinical / Technical Purpose"],
-                trows, col_widths=[1.45, 1.15, 1.25, 2.17])
-
-    b.h2("4.8", "Input Design, Output Design and Corporate ERP UI Design System")
+    b.subheading("Java Virtual Machine (JVM) Execution Pipeline and Memory Architecture")
     b.p(
-        "To eliminate clerical errors across high-volume reception desks, consulting rooms, and pharmacy counters, "
-        "IMS implements a unified server-rendered design system defined in static/css/app.css, templates/layout/base.html, "
-        "and templates/layout/auth.html."
+        "The Java Virtual Machine (JVM) provides the deterministic, hardware-independent execution substrate "
+        "upon which Infeara Medical System runs in development, continuous integration, and production clinic "
+        "deployments. When the Maven compiler (javac) builds the 189 source files under com.clinicflow, each "
+        "Java class, record, and enum is compiled into verified .class bytecode instructions packaged inside "
+        "an executable Spring Boot JAR archive. At runtime, the HotSpot JVM processes these classes through "
+        "four coordinated subsystems:",
+        first_indent=36
     )
-    b.bullet("Input Design & Dual-Layer Validation:",
-             "Every HTML form binds to a dedicated Jakarta Bean Validation DTO (such as RegistrationForm, "
-             "ClinicEnrollmentForm, PatientProfileForm, BookingForm, ConsultationForm, PrescriptionForm, and "
-             "LinkApprovalForm). Inputs group related clinical fields logically, preserve user entries on validation "
-             "errors, trim whitespace server-side, attach automatic Spring Security _csrf hidden tokens, and use "
-             "explicit confirmation checkboxes on irreversible actions such as patient record merges and consultation finalization.")
-    b.bullet("Output Design & Clinical Readability:",
-             "Outputs combine top-of-page KPI metric cards (KpiCard record), semantic color-coded status pills "
-             "(ACTIVE/VALID in #E3F4EA green, PENDING/PARTIAL in #FFF1DB amber, SUSPENDED/CANCELLED in #FBE7E5 red), "
-             "monospace high-contrast 32-character prescription banners, printable POS dispense receipts showing "
-             "itemized unit prices, discounts, tax, tendered cash, and change due, and exportable RFC-4180 CSV "
-             "formulary files.")
-    b.bullet("Consistent ERP Navigation & Breadcrumb Engine:",
-             "NavigationService dynamically computes role-specific left-sidebar items and hierarchical breadcrumbs "
-             "(Home / Parent Module / Current Detail) alongside a sticky 56 px #0F2744 top bar displaying the active "
-             "organization name, role badge, user avatar chip, and one-click session sign-out.")
+    b.bullet("ClassLoader Subsystem:",
+             "Loads application, Spring Boot, Hibernate, and JDBC driver classes dynamically through a "
+             "delegation hierarchy (Bootstrap, Platform, and Application ClassLoaders) while performing "
+             "strict bytecode verification to prevent illegal pointer casts, stack overflows, or access-modifier "
+             "violations before any clinical logic executes.")
+    b.bullet("Runtime Data Areas (Heap, Metaspace, and Thread Stacks):",
+             "Stores short-lived HTTP request DTOs, Thymeleaf model maps, and JPA entity snapshots inside "
+             "generational Heap regions, class metadata in native Metaspace, and per-request method activation "
+             "frames in isolated Java thread stacks so concurrent clinic receptionists, doctors, and pharmacists "
+             "never corrupt one another's local execution state.")
+    b.bullet("Tiered Just-In-Time (JIT) Compilation (C1 & C2):",
+             "Profiles hot clinical code paths—such as 32-character prescription verification, slot availability "
+             "generation, and BigDecimal POS tax calculation—and compiles frequently executed bytecode directly "
+             "into optimized x86-64/ARM64 machine instructions.")
+    b.bullet("Garbage-First (G1GC) Low-Pause Memory Collector:",
+             "Reclaims short-lived request allocations concurrently in millisecond pauses, ensuring predictable "
+             "sub-100 ms HTTP response latencies across simultaneous multi-clinic consultations and pharmacy "
+             "counter billing peaks.")
 
+    b.subheading("Java Cryptography Architecture (JCA) in Infeara Medical System")
     b.p(
-        "Complementing the relational schema, all state machines, roles, outcomes, and security modes in "
-        "com.clinicflow.domain.enums are modeled as strongly typed Java enums mapped via @Enumerated(EnumType.STRING) "
-        "and enforced at the database layer via matching SQL CHECK constraints (Table 4.13)."
+        "Because Infeara Medical System handles Protected Health Information (PHI), single-use onboarding "
+        "credentials, e-prescription tokens, and outbound SMTP relay secrets, it relies directly on vetted "
+        "primitives from the standard Java Cryptography Architecture (java.security and javax.crypto) rather "
+        "than ad-hoc encoding schemes:",
+        first_indent=36
+    )
+    b.bullet("CSPRNG Entropy (java.security.SecureRandom):",
+             "PublicIdGenerator.prescriptionCode() draws cryptographically strong random indices over a "
+             "31-character unambiguous uppercase alphabet (23456789ABCDEFGHJKMNPQRSTUVWXYZ, omitting visually "
+             "confusable 0/O and 1/I/L) to produce 32-character case-sensitive prescription codes carrying "
+             "approximately 158.5 bits of entropy. AuthTokenService similarly generates 32-byte (256-bit) "
+             "Base64URL-encoded tokens for email verification, password reset, staff invites, and email changes.")
+    b.bullet("One-Way Cryptographic Token Hashing (java.security.MessageDigest SHA-256):",
+             "TokenHasher computes deterministic 32-byte SHA-256 digests stored in BINARY(32) columns "
+             "(dbo.AuthTokens.token_hash and dbo.PharmacyVerifications.attempt_hash). Even in the event of a "
+             "read-only database backup leak, an attacker cannot reconstruct active invitation or password-reset "
+             "URLs from stored digests.")
+    b.bullet("Authenticated Symmetric Encryption (javax.crypto.Cipher AES/GCM/NoPadding):",
+             "SecretCipher encrypts outbound SMTP credentials stored in dbo.SmtpSettings.password_enc using "
+             "256-bit AES in Galois/Counter Mode (GCM) with a freshly generated 12-byte (96-bit) random "
+             "initialization vector prepended to each ciphertext and a 128-bit authentication tag that detects "
+             "any bit-level tampering prior to decryption.")
+    b.bullet("Adaptive Password Hashing (Spring Security BCrypt):",
+             "PasswordEncoderFactories.createDelegatingPasswordEncoder() hashes all user passwords using salted "
+             "BCrypt ({bcrypt}$2a$10$...), incorporating a unique 128-bit cryptographic salt per user and "
+             "exponential key-stretching cost to resist GPU dictionary and rainbow-table attacks.")
+
+    b.subheading("Jakarta Servlet 6.1 and Spring MVC Request Processing Lifecycle")
+    b.p(
+        "Every browser interaction in Infeara Medical System traverses a deterministic, layered Jakarta Servlet "
+        "6.1 and Spring Web MVC pipeline hosted inside embedded Apache Tomcat 11. Understanding this end-to-end "
+        "request lifecycle clarifies how security, tenant isolation, validation, database transactions, and "
+        "HTML rendering cooperate seamlessly:",
+        first_indent=36
+    )
+    b.bullet("Step 1 — Security & Rate-Limit Filter Chain:",
+             "Incoming HTTP requests first pass through LoginThrottleFilter (per-email+IP sliding-window brute-force "
+             "limiter on POST /login), CsrfFilter (synchronizer token validation on all state-mutating POST forms), "
+             "UsernamePasswordAuthenticationFilter (ClinicUserDetails authentication), and ClinicStatusFilter "
+             "(real-time check ensuring the authenticated staff member's clinic has not been SUSPENDED).")
+    b.bullet("Step 2 — DispatcherServlet & Handler Mapping:",
+             "Spring's central DispatcherServlet routes the authenticated request to one of the role-scoped "
+             "@Controller classes (/admin/**, /clinic/**, /doctor/**, /patient/**, or /pharmacy/**) while "
+             "enforcing URL-level RBAC matchers configured in SecurityConfig.")
+    b.bullet("Step 3 — Bean Validation & Transactional Domain Service:",
+             "Jakarta Bean Validation (@Valid, @NotBlank, @Email, @Min, @Max, @DecimalMin) validates form DTOs "
+             "before invoking @Transactional service methods. Service methods derive clinic_id, doctor_id, "
+             "patient_id, or pharmacy_id strictly from the server-side SecurityContext principal rather than "
+             "client-supplied hidden inputs.")
+    b.bullet("Step 4 — Hibernate/JDBC Persistence & Outbox Recording:",
+             "Within a single ACID database transaction, Hibernate 6 flushes entity state changes alongside "
+             "append-only dbo.AuditLogs records and dbo.EmailLogs outbox rows, guaranteeing atomicity between "
+             "clinical state transitions and their compliance trail.")
+    b.bullet("Step 5 — GlobalModelAdvice & Thymeleaf SSR View Rendering:",
+             "For GET requests (or following a Post-Redirect-Get 302 redirect after POST mutations), "
+             "GlobalModelAdvice injects role navigation metadata and flash banners before ThymeleafViewResolver "
+             "renders the target HTML5 template with automatic contextual XSS escaping.")
+
+    b.subheading("HTML5, CSS3 Custom Design System and Progressive Enhancement")
+    b.p(
+        "The user interface of Infeara Medical System is engineered around semantic HTML5 landmarks, Bootstrap "
+        "5.3 responsive grid utilities, and 1,882 lines of bespoke design-system rules in static/css/app.css "
+        "tailored specifically for high-density clinical and pharmacy workstations:",
+        first_indent=36
+    )
+    b.bullet("Corporate Healthcare ERP Visual Hierarchy:",
+             "A fixed 260 px dark-navy sidebar (#0F2744) anchors role-specific navigation, paired with a sticky "
+             "60 px topbar displaying breadcrumb context, tenant badge, and sign-out controls over a calm cool-slate "
+             "workspace (#F4F6F9) with crisp white (#FFFFFF) card surfaces and #DDE3EC hairline borders.")
+    b.bullet("WCAG AA Semantic Clinical Status Badges:",
+             "Appointments, consultations, prescriptions, and link requests render consistent high-contrast pill "
+             "badges—Emerald (#0D7A5F) for ACTIVE/VALID/FINAL/APPROVED, Amber (#B45309) for PENDING/DRAFT/PARTIAL, "
+             "and Crimson (#B91C1C) for SUSPENDED/CANCELLED/EXPIRED/REJECTED—always pairing color with explicit "
+             "uppercase text labels.")
+    b.bullet("Progressive Vanilla ES6 Enhancements (static/js/app.js):",
+             "Core workflows operate reliably over pure HTML forms, while lightweight unobtrusive JavaScript "
+             "enhances dynamic prescription line-item addition/removal, clinic medicine formulary autofill, "
+             "one-click 32-character Rx code clipboard copying, and real-time POS line-total, discount, tax, "
+             "and grand-total arithmetic on the pharmacist billing screen.")
+
+    b.subheading("Apache Maven 3.9 Build Lifecycle and Environment Profiles")
+    b.p(
+        "Infeara Medical System is structured as a reproducible Apache Maven 3.9 project governed by "
+        "clinicflow-app/pom.xml and four environment-specific Spring configuration files so developers, "
+        "automated CI pipelines, and production servers share identical dependency versions:",
+        first_indent=36
     )
     b.table(
-        "4.13", "Complete Java Domain Enumeration Reference (com.clinicflow.domain.enums.*)",
-        ["Java Enum Class", "Permitted Constants", "Governing Entity / Table"],
+        "Spring Boot Environment Profiles & Configuration Files in IMS:",
+        ["Configuration File", "Active Profile", "Database, Security & Runtime Behavior"],
         [
-            ["Role", "SUPER_ADMIN, CLINIC_ADMIN, DOCTOR, PATIENT, PHARMACY_ADMIN, PHARMACIST", "Users.role / SecurityFilterChain"],
-            ["UserStatus", "PENDING, ACTIVE, LOCKED, DISABLED", "Users.status"],
-            ["ClinicStatus", "PENDING_ENROLLMENT, ACTIVE, SUSPENDED, REJECTED", "Clinics.status"],
-            ["DoctorStatus", "ACTIVE, INACTIVE", "Doctors.status"],
-            ["PatientSource", "SELF, CLINIC", "Patients.created_source"],
-            ["Gender", "MALE, FEMALE, OTHER, UNKNOWN", "Patients.gender"],
-            ["AppointmentStatus", "BOOKED, CONFIRMED, IN_CONSULTATION, COMPLETED, CANCELLED, NO_SHOW", "Appointments.status"],
-            ["ConsultationStatus", "DRAFT, FINAL", "Consultations.status"],
-            ["PrescriptionStatus", "VALID, CANCELLED", "Prescriptions.status"],
-            ["PharmacyStatus", "PENDING, ACTIVE, SUSPENDED", "Pharmacies.status"],
-            ["PharmacyUserRole", "PHARMACY_ADMIN, PHARMACIST", "PharmacyUsers.role_in_pharmacy"],
-            ["PharmacyUserStatus", "PENDING, ACTIVE, DISABLED", "PharmacyUsers.status"],
-            ["VerificationOutcome", "VALID, NOT_FOUND, CANCELLED, EXPIRED, FULLY_DISPENSED", "PharmacyVerifications.outcome"],
-            ["DispenseStatus", "PARTIAL, FULL", "PrescriptionDispenses.dispense_status"],
-            ["AuthTokenPurpose", "VERIFY_EMAIL, RESET_PASSWORD, STAFF_INVITE, EMAIL_CHANGE", "AuthTokens.purpose"],
-            ["EmailStatus", "QUEUED, SENT, FAILED", "EmailLogs.status"],
-            ["SmtpSecurity", "NONE, STARTTLS, SSL_TLS", "SmtpSettings.security_mode"],
-            ["EnrollmentStatus", "SUBMITTED, APPROVED, REJECTED", "ClinicEnrollments.status"],
-            ["LinkRequestMethod", "PATIENT_PORTAL, CLINIC_DESK, EMAIL_MATCH", "PatientLinkRequests.method"],
-            ["LinkRequestStatus", "PENDING, APPROVED, REJECTED, EXPIRED", "PatientLinkRequests.status"],
-            ["AuditOutcome", "SUCCESS, DENIED, FAILURE", "AuditLogs.outcome"],
+            ["application.yml", "default (MSSQL)", "Connects to SQL Server 2022 via HikariCP, enables Flyway V001–V009, sets hibernate.ddl-auto=validate, disables open-in-view, configures HttpOnly/SameSite=Lax session cookies and AES-GCM secret key."],
+            ["application-h2.yml", "h2 (Local Demo)", "Configures in-memory H2 in MODE=MSSQLServer; disables Flyway BIN2-specific T-SQL scripts and initializes schema cleanly via Hibernate for zero-dependency local evaluation."],
+            ["application-test.yml", "test (JUnit / MockMvc)", "Isolated H2 test database per test suite with deterministic test AES/remember-me keys and fast scheduler intervals for integration verification."],
+            ["application-prod.yml", "prod (Production)", "Enforces TLS secure cookies (server.servlet.session.cookie.secure=true), disables Thymeleaf cache-miss debug leaks, and requires externalized environment secrets."],
         ],
-        col_widths=[1.45, 2.75, 1.82]
+        col_widths=[1.65, 1.35, 3.45]
     )
 
-    b.p(
-        "Table 4.14 documents the Corporate ERP visual design tokens engineered in "
-        "src/main/resources/static/css/app.css (1,882 lines) governing layout geometry, contrast-verified "
-        "healthcare color semantics, and typography across all 61 Thymeleaf templates."
-    )
-    b.table(
-        "4.14", "Corporate ERP User Interface Design System Tokens (static/css/app.css)",
-        ["CSS Custom Property", "Token Value", "UI Architectural Application"],
-        [
-            ["--c-primary / --c-primary-hover", "#1E4E8C / #163B6B", "Primary medical navy buttons, active links, focus rings & table accents"],
-            ["--c-sidebar-bg / --c-sidebar-active", "#0F2744 / #1E4E8C", "Fixed dark-navy left ERP navigation rail & active route indicator"],
-            ["--c-accent / --c-accent-soft", "#0E8A8A / #E6F4F4", "Clinical teal accent badges, secondary highlights & active icons"],
-            ["--c-bg / --c-surface / --c-surface-muted", "#F4F6F9 / #FFFFFF / #F8FAFC", "App workspace canvas, elevated white cards & zebra table headers"],
-            ["--c-success / --c-warning / --c-danger", "#157F3B / #B45309 / #B91C1C", "WCAG AA status pills (ACTIVE/VALID, PENDING/PARTIAL, CANCELLED/EXPIRED)"],
-            ["--font-sans / --font-mono", "Inter, Segoe UI / Cascadia Mono, Consolas", "Crisp UI typography + unambiguous monospace 32-char Rx & public IDs"],
-            ["--topbar-h / --sidebar-w / --subbar-h", "56px / 256px / 40px", "Fixed ERP shell dimensions ensuring stable zero-shift workspace"],
-        ],
-        col_widths=[1.85, 1.65, 2.52]
-    )
